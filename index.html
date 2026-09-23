@@ -164,6 +164,20 @@ header h1{font-size:15px; margin-right:4px;}
 .modal label{display:block; font-size:11px; color:var(--muted); margin:10px 0 3px; text-transform:uppercase; letter-spacing:.03em;}
 .modal input[type=text], .modal input[type=date], .modal select, .modal textarea{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:inherit;}
 .modal textarea{min-height:70px; resize:vertical;}
+.comments{max-height:320px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:4px 8px; background:var(--bg);}
+.cm{display:flex; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);}
+.cm:last-child{border-bottom:none;}
+.cm-av{width:26px; height:26px; flex-shrink:0; border-radius:50%; background:#94a3b8; color:#fff; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center;}
+.cm.mine .cm-av{background:var(--accent);}
+.cm-main{flex:1; min-width:0;}
+.cm-head{display:flex; gap:8px; align-items:baseline; font-size:12px;}
+.cm-head span{color:var(--muted); font-size:11px;}
+.cm-rm{margin-left:auto; border:none; background:none; color:var(--muted); font-size:10px; cursor:pointer;}
+.cm-rm:hover{color:var(--danger);}
+.cm-body{white-space:pre-wrap; word-wrap:break-word; margin-top:2px; line-height:1.4;}
+.cm-empty{color:var(--muted); font-size:12px; padding:8px 0;}
+.cm-new{display:flex; gap:6px; margin-top:6px; align-items:flex-end;}
+.cm-new textarea{min-height:44px !important; flex:1;}
 .mrow{display:flex; gap:10px;}
 .mrow>div{flex:1;}
 .tagpick{display:flex; gap:5px; flex-wrap:wrap;}
@@ -264,6 +278,7 @@ body.dark .note-toolbar button{background:rgba(255,255,255,.06); border-color:rg
   <span id="urgentBadge" title="Kliknutím vyfiltruješ blížící se termíny"></span>
   <span id="frogChip" title="Dnešní žába – klikni pro otevření manuálu">🐸 <span id="frogChipTxt"></span></span>
   <div class="tagfilter" id="tagFilter"></div>
+  <div class="tagfilter" id="personFilter"></div>
   <div class="spacer"></div>
   <span id="cloudStatus" title="Stav ukládání do cloudu" style="font-size:11px;color:var(--muted);white-space:nowrap;padding:0 4px;"></span>
   <button class="hbtn" id="logoutBtn" style="display:none">Odhlásit</button>
@@ -627,6 +642,7 @@ async function loadTasks(){
     const { data, error } = await sb.from('tasks').select('*');
     if(error) throw error;
     state.tasks = (data||[]).map(rowToTask);
+    await loadCommentCounts();
     const ids = new Set(state.columns.map(c=>c.id));
     for(const t of state.tasks){ if(t.col!=='__assigned' && !ids.has(t.col)) t.col = state.columns[0] ? state.columns[0].id : ''; }
     snapshotTasks();
@@ -669,6 +685,7 @@ async function pushTasks(){
 async function refreshTasks(){
   if(!ME || !sb) return;
   if(document.getElementById('overlay').classList.contains('show')) return;
+  if(Object.values(QA_LIVE).some(s=>s.open)) return; // nepřekreslovat pod rukama při psaní nového úkolu
   await loadTasks(); render();
 }
 window.addEventListener('focus', refreshTasks);
@@ -731,6 +748,13 @@ async function applyAuth(session){
 let activeTagFilters = new Set();
 let urgentOnly = false;
 let searchQ = '';
+let personFilter = '';
+
+/* rozepsané úkoly v rychlém zakládání: QA_LIVE = živý stav (přežije překreslení), koncept = localStorage */
+const QA_LIVE = {};
+function qaDraftLoad(colId){ try{ return JSON.parse(localStorage.getItem('ukoly-qa-draft-'+colId)||'null'); }catch(e){ return null; } }
+function qaDraftSave(colId, st){ try{ localStorage.setItem('ukoly-qa-draft-'+colId, JSON.stringify(Object.assign({}, st, {open:false}))); }catch(e){} }
+function qaDraftClear(colId){ try{ localStorage.removeItem('ukoly-qa-draft-'+colId); }catch(e){} }
 
 /* ---------------- helpers ---------------- */
 const tagById = id => state.tags.find(t=>t.id===id);
@@ -754,6 +778,12 @@ function visible(t){
   if(state.hideDone && t.done) return false;
   if(urgentOnly && !isUrgent(t)) return false;
   if(activeTagFilters.size && !t.tags.some(id=>activeTagFilters.has(id))) return false;
+  if(personFilter==='__mine'){
+    const a = t.assignees||[];
+    if(a.length && !(ME && a.includes(ME.name))) return false;
+  } else if(personFilter){
+    if(!(t.assignees||[]).includes(personFilter)) return false;
+  }
   if(searchQ){
     const q = searchQ.toLowerCase();
     if(!(t.title.toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q))) return false;
@@ -792,6 +822,15 @@ function renderHeader(){
     c.innerHTML = `<span class="dot" style="background:${tg.color}"></span>${esc(tg.name)}`;
     c.onclick = ()=>{ activeTagFilters.has(tg.id) ? activeTagFilters.delete(tg.id) : activeTagFilters.add(tg.id); render(); };
     tf.appendChild(c);
+  }
+  const pf = document.getElementById('personFilter'); pf.innerHTML='';
+  const names = ['__mine', ...PEOPLE.map(p=>p.name).filter(n=>!ME || n!==ME.name)];
+  for(const n of names){
+    const c = document.createElement('span');
+    c.className = 'chip' + (personFilter && personFilter!==n ? ' off' : '');
+    c.textContent = (n==='__mine') ? '👤 Jen moje' : '👤 '+n;
+    c.onclick = ()=>{ personFilter = (personFilter===n ? '' : n); render(); };
+    pf.appendChild(c);
   }
   document.getElementById('hideDoneBtn').classList.toggle('active', state.hideDone);
 }
@@ -931,6 +970,23 @@ function renderCol(col){
   };
   drawChips();
 
+  // přiřadit lidem
+  const assigned=new Set();
+  const assignBox=document.createElement('div'); assignBox.style.cssText='display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-bottom:6px;';
+  const drawAssign=()=>{
+    assignBox.innerHTML='';
+    const others=PEOPLE.filter(p=>!ME || p.name!==ME.name);
+    if(!others.length) return;
+    const lbl=document.createElement('span'); lbl.textContent='Přiřadit:'; lbl.style.cssText='font-size:11px; color:var(--muted);'; assignBox.appendChild(lbl);
+    for(const p of others){
+      const c=document.createElement('span'); c.className='chip'+(assigned.has(p.name)?'':' off');
+      c.textContent='👤 '+p.name; c.style.borderColor='var(--border)';
+      c.title='Přiřadit – pošle e-mail';
+      c.onmousedown=(ev)=>{ ev.preventDefault(); assigned.has(p.name)?assigned.delete(p.name):assigned.add(p.name); drawAssign(); qaSync(); };
+      assignBox.appendChild(c);
+    }
+  };
+
   // poznámka
   const noteIn=document.createElement('textarea'); noteIn.placeholder='Poznámka (nepovinné)…'; noteIn.rows=2;
   noteIn.style.cssText='width:100%; padding:5px 6px; border:1px solid var(--border); border-radius:6px; font-size:12px; font-family:inherit; resize:vertical; margin-bottom:6px;';
@@ -939,25 +995,55 @@ function renderCol(col){
   const btnRow=document.createElement('div'); btnRow.style.cssText='display:flex; gap:6px; align-items:center;';
   const okBtn=document.createElement('button'); okBtn.className='qa-ok'; okBtn.textContent='Založit';
   okBtn.style.cssText='padding:5px 16px; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;';
-  const cancelBtn=document.createElement('button'); cancelBtn.textContent='Zrušit';
-  cancelBtn.style.cssText='padding:5px 8px; border:none; background:none; color:var(--muted); cursor:pointer; font-size:12px;';
-  btnRow.append(okBtn, cancelBtn);
-  panel.append(prioWrap, dueIn, chipsBox, noteIn, btnRow);
+  const draftBtn=document.createElement('button'); draftBtn.textContent='Uložit koncept';
+  draftBtn.style.cssText='padding:5px 10px; border:1px solid var(--border); background:var(--panel); color:var(--text); border-radius:6px; cursor:pointer; font-size:12px;';
+  const cancelBtn=document.createElement('button'); cancelBtn.textContent='Zahodit';
+  cancelBtn.style.cssText='padding:5px 8px; border:none; background:none; color:var(--danger); cursor:pointer; font-size:12px; margin-left:auto;';
+  btnRow.append(okBtn, draftBtn, cancelBtn);
+  panel.append(prioWrap, dueIn, chipsBox, assignBox, noteIn, btnRow);
+
+  const draftTag=document.createElement('div');
+  draftTag.textContent='📝 rozepsaný koncept – klikni pro pokračování';
+  draftTag.style.cssText='display:none; font-size:10px; color:var(--warn); padding:2px 2px 0; cursor:pointer;';
+  draftTag.onclick=()=>qa.focus();
+
+  // stav formuláře přežije překreslení (QA_LIVE) i zavření prohlížeče (koncept v localStorage)
+  const setPrio=v=>{ naPrio=v; prioBtns.forEach((x,i)=>x.style.background=(i===v)?'#e0e7ff':'var(--panel)'); };
+  const hasContent=()=>!!(qa.value.trim() || noteIn.value.trim() || dueIn.value || picked.size || assigned.size || naPrio);
+  const snap=()=>({title:qa.value, prio:naPrio, due:dueIn.value, tags:[...picked], assignees:[...assigned], note:noteIn.value, open:expanded});
+  function qaSync(){ QA_LIVE[col.id]=snap(); }
+  const showDraftTag=()=>{ draftTag.style.display = (!expanded && qaDraftLoad(col.id)) ? 'block' : 'none'; };
+  const fill=st=>{
+    qa.value=st.title||''; setPrio(st.prio||0); dueIn.value=st.due||''; noteIn.value=st.note||'';
+    picked.clear(); (st.tags||[]).forEach(id=>picked.add(id)); drawChips();
+    assigned.clear(); (st.assignees||[]).forEach(n=>assigned.add(n)); drawAssign();
+  };
+  const reset=()=>{ fill({}); delete QA_LIVE[col.id]; qaDraftClear(col.id); showDraftTag(); };
 
   let expanded=false;
-  const away=e=>{ if(!addWrap.contains(e.target)) collapse(); };
-  function expand(){ if(expanded) return; expanded=true; panel.style.display='block'; qa.style.borderRadius='6px 6px 0 0'; document.addEventListener('mousedown', away); }
-  function collapse(){ if(!expanded) return; expanded=false; panel.style.display='none'; qa.style.borderRadius=''; document.removeEventListener('mousedown', away); }
+  // klik mimo zavře panel jen když je prázdný – rozepsaný úkol se musí založit, uložit jako koncept nebo zahodit
+  const away=e=>{ if(!addWrap.contains(e.target) && !hasContent()) collapse(); };
+  function expand(){ if(expanded) return; expanded=true; panel.style.display='block'; qa.style.borderRadius='6px 6px 0 0'; document.addEventListener('mousedown', away); showDraftTag(); qaSync(); }
+  function collapse(){ if(!expanded) return; expanded=false; panel.style.display='none'; qa.style.borderRadius=''; document.removeEventListener('mousedown', away); showDraftTag(); if(QA_LIVE[col.id]) QA_LIVE[col.id].open=false; if(!hasContent()) delete QA_LIVE[col.id]; }
   const submitNew=()=>{
     const v=qa.value.trim(); if(!v){ qa.focus(); return; }
-    state.tasks.push({id:uid(), title:v, col:col.id, tags:[...picked], due:dueIn.value||'', note:noteIn.value.trim(), done:false, attachments:[], priority:naPrio, created:Date.now()});
-    collapse(); save(); render();
+    state.tasks.push({id:uid(), title:v, col:col.id, tags:[...picked], due:dueIn.value||'', note:noteIn.value.trim(), done:false, attachments:[], priority:naPrio, assignees:[...assigned], created:Date.now()});
+    collapse(); reset(); save(); render();
   };
   qa.onfocus=expand;
-  qa.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); submitNew(); } if(e.key==='Escape') collapse(); };
+  qa.oninput=qaSync; dueIn.onchange=qaSync; noteIn.oninput=qaSync;
+  prioBtns.forEach(b=>b.addEventListener('mousedown', ()=>setTimeout(qaSync)));
+  chipsBox.addEventListener('mousedown', ()=>setTimeout(qaSync));
+  qa.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); submitNew(); } if(e.key==='Escape' && !hasContent()) collapse(); };
   okBtn.onmousedown=e=>{ e.preventDefault(); submitNew(); };
-  cancelBtn.onmousedown=e=>{ e.preventDefault(); qa.value=''; collapse(); };
-  addWrap.append(qa, panel);
+  draftBtn.onmousedown=e=>{ e.preventDefault(); if(!hasContent()){ collapse(); return; } qaDraftSave(col.id, snap()); collapse(); qa.blur(); };
+  cancelBtn.onmousedown=e=>{ e.preventDefault(); if(hasContent() && !confirm('Zahodit rozepsaný úkol?')) return; reset(); collapse(); qa.blur(); };
+  addWrap.append(qa, draftTag, panel);
+
+  drawAssign();
+  const st0 = QA_LIVE[col.id] || qaDraftLoad(col.id);
+  if(st0){ fill(st0); if(st0.open){ expand(); } }
+  showDraftTag();
 
   const list = document.createElement('div'); list.className='tasklist'; list.dataset.col=col.id;
   const shown = tasksIn.filter(visible).sort((a,b)=> (a.done-b.done) || ((a.due||'9999-99-99').localeCompare(b.due||'9999-99-99')) || ((b.priority||0)-(a.priority||0)) );
@@ -991,6 +1077,9 @@ function renderTask(t){
   if(t.note || (t.attachments&&t.attachments.length)){
     const ex=document.createElement('span'); ex.className='hasextra';
     ex.textContent=(t.note?'📝':'')+(t.attachments.length?'📎':''); mini.appendChild(ex);
+  }
+  if(COMMENT_COUNT[t.id]){
+    const cm=document.createElement('span'); cm.className='hasextra'; cm.textContent='💬'+COMMENT_COUNT[t.id]; cm.title='Počet komentářů'; mini.appendChild(cm);
   }
   if(t.subs && t.subs.length){
     const done=t.subs.filter(x=>x.done).length;
@@ -1080,8 +1169,9 @@ const overlay = document.getElementById('overlay');
 const modalBox = document.getElementById('modalBox');
 let openTaskId = null;
 
-overlay.onclick = e=>{ if(e.target===overlay) closeModal(); };
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+// detail úkolu se nezavírá klikem vedle ani Escapem (neuložené změny by se ztratily) – jen tlačítky
+overlay.onclick = e=>{ if(e.target===overlay && !openTaskId) closeModal(); };
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !openTaskId) closeModal(); });
 function closeModal(){ overlay.classList.remove('show'); modalBox.innerHTML=''; openTaskId=null; document.removeEventListener('paste', pasteHandler); }
 
 function openTask(id){
@@ -1123,6 +1213,13 @@ function openTaskModal(t, isNew){
       <input type="text" id="m_subnew" placeholder="Nový podúkol… (Enter)" style="flex:1;">
       <button class="btn" id="m_subadd" type="button">Přidat</button>
     </div>
+    ${isNew ? '' : `
+    <label>Komentáře</label>
+    <div id="m_comments" class="comments"><div class="cm-empty">Načítám…</div></div>
+    <div class="cm-new">
+      <textarea id="m_cmnew" placeholder="Napiš komentář k vývoji úkolu… (Ctrl+Enter odešle)"></textarea>
+      <button class="btn primary" id="m_cmadd" type="button">Přidat komentář</button>
+    </div>`}
     <div class="mfoot">
       <button class="btn primary" id="m_save">${isNew?'Založit úkol':'Uložit'}</button>
       <button class="btn" id="m_cancel">Zrušit</button>
@@ -1247,6 +1344,7 @@ function openTaskModal(t, isNew){
     save(); closeModal(); render();
   };
   document.getElementById('m_cancel').onclick = closeModal;
+  if(!isNew) setupComments(t);
   const _delBtn = document.getElementById('m_del');
   if(isNew){ _delBtn.style.display='none'; }
   else _delBtn.onclick = ()=>{
@@ -1258,6 +1356,67 @@ function openTaskModal(t, isNew){
   overlay.classList.add('show');
   document.getElementById('m_title').focus();
 }
+/* ---------------- komentáře k úkolu (tabulka task_comments) ---------------- */
+let COMMENT_COUNT = {};
+async function loadCommentCounts(){
+  if(!sb || !ME) return;
+  try{
+    const { data, error } = await sb.from('task_comments').select('task_id');
+    if(error) throw error;
+    COMMENT_COUNT = {}; for(const r of data||[]) COMMENT_COUNT[r.task_id]=(COMMENT_COUNT[r.task_id]||0)+1;
+  }catch(e){ console.warn(e); }
+}
+function fmtCmTime(iso){
+  const d=new Date(iso), now=new Date();
+  const hm=d.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===now.toDateString()) return 'dnes '+hm;
+  const y=new Date(now); y.setDate(now.getDate()-1);
+  if(d.toDateString()===y.toDateString()) return 'včera '+hm;
+  return d.getDate()+'. '+(d.getMonth()+1)+'.'+(d.getFullYear()!==now.getFullYear()?' '+d.getFullYear():'')+' '+hm;
+}
+function setupComments(t){
+  const box=document.getElementById('m_comments'), inp=document.getElementById('m_cmnew'), btn=document.getElementById('m_cmadd');
+  if(!sb || !ME){ box.innerHTML='<div class="cm-empty">Komentáře fungují jen po přihlášení.</div>'; inp.disabled=btn.disabled=true; return; }
+  const draw=list=>{
+    if(openTaskId!==t.id) return;
+    COMMENT_COUNT[t.id]=list.length;
+    if(!list.length){ box.innerHTML='<div class="cm-empty">Zatím žádné komentáře.</div>'; return; }
+    box.innerHTML='';
+    for(const c of list){
+      const el=document.createElement('div'); el.className='cm'+(c.author_id===ME.id?' mine':'');
+      const av=document.createElement('div'); av.className='cm-av'; av.textContent=(c.author_name||'?').charAt(0).toUpperCase();
+      const main=document.createElement('div'); main.className='cm-main';
+      const head=document.createElement('div'); head.className='cm-head';
+      head.innerHTML=`<b>${esc(c.author_name||'?')}</b><span>${fmtCmTime(c.created_at)}</span>`;
+      if(c.author_id===ME.id){
+        const rm=document.createElement('button'); rm.className='cm-rm'; rm.textContent='smazat'; rm.type='button';
+        rm.onclick=async()=>{ if(!confirm('Smazat komentář?')) return; await sb.from('task_comments').delete().eq('id', c.id); load(); };
+        head.appendChild(rm);
+      }
+      const body=document.createElement('div'); body.className='cm-body'; body.textContent=c.body;
+      main.append(head, body); el.append(av, main); box.appendChild(el);
+    }
+    box.scrollTop=box.scrollHeight;
+  };
+  const load=async()=>{
+    const { data, error } = await sb.from('task_comments').select('*').eq('task_id', t.id).order('created_at');
+    if(error){ box.innerHTML='<div class="cm-empty">⚠ Komentáře se nepodařilo načíst.</div>'; return; }
+    draw(data||[]);
+  };
+  const add=async()=>{
+    const v=inp.value.trim(); if(!v) return;
+    btn.disabled=true;
+    let { error } = await sb.from('task_comments').insert({ task_id:t.id, body:v });
+    if(error){ await pushTasks(); ({ error } = await sb.from('task_comments').insert({ task_id:t.id, body:v })); } // úkol možná ještě nebyl v cloudu
+    btn.disabled=false;
+    if(error){ alert('Komentář se neuložil: '+error.message); return; }
+    inp.value=''; load();
+  };
+  btn.onclick=add;
+  inp.onkeydown=e=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); add(); } };
+  load();
+}
+
 function pasteHandler(e){
   if(!openTaskId && !document.getElementById('tm_list')) return;
   const items = e.clipboardData && e.clipboardData.items; if(!items) return;
