@@ -2,75 +2,165 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
-<!-- This site is hosted on Netlify. Anyone can build and deploy a site
-     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-legible&utm_medium=owned&utm_content=comment&utm_id=47a3a075-8eaf-419a-b766-84a22261c2dc
-     Netlify hosting facts for this site: static/SSR served via Netlify Edge. -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Úkoly</title>
+<title>todomk – Úkoly</title>
+<meta name="theme-color" content="#0E0F11">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+/* ================= DESIGN TOKENS ================= */
 :root{
-  --bg:#f4f5f7; --panel:#fff; --border:#e2e4e9; --text:#1f2328; --muted:#6b7280;
-  --accent:#2563eb; --danger:#dc2626; --warn:#ea580c; --soon:#ca8a04; --ok:#16a34a;
-  --row-h:30px;
+  /* světlý režim */
+  --bg:#F3F3F1; --side:#ECECE9; --colbg:#E9E9E6; --colbg-today:#EFEADF; --card:#FFFFFF; --card2:#FAFAF8;
+  --line:#DEDED9; --line2:#CFCFC9; --text:#18191B; --tx2:#545860; --muted:#6E727A;
+  --accent:#F2B544; --accent-ink:#141518; --accent-tx:#94600B; --accent-soft:rgba(242,181,68,.22);
+  --hard-tx:#B3261E; --hard-bg:rgba(220,38,38,.10); --today-tx:#94600B; --today-bg:rgba(242,181,68,.25);
+  --ok:#2F9E63; --danger:#C93A30; --warn:#B86A0A; --soon:#94600B;
+  --input:#FFFFFF; --hover:#E4E4E0; --overlay:rgba(20,21,24,.35); --shadow:0 1px 2px rgba(0,0,0,.05);
+  /* staré názvy kvůli zpětné kompatibilitě */
+  --panel:var(--card); --border:var(--line);
+  --font:'Geist',system-ui,-apple-system,"Segoe UI",sans-serif; --mono:'Geist Mono',ui-monospace,monospace;
+}
+body.dark{
+  --bg:#0E0F11; --side:#121316; --colbg:#131417; --colbg-today:#18171A; --card:#1C1E22; --card2:#212429;
+  --line:#2A2D33; --line2:#3A3E45; --text:#EDEEF0; --tx2:#A6AAB1; --muted:#868B94;
+  --accent:#F2B544; --accent-ink:#141518; --accent-tx:#F2C062; --accent-soft:rgba(242,181,68,.16);
+  --hard-tx:#F59A90; --hard-bg:rgba(242,118,107,.15); --today-tx:#F2C062; --today-bg:rgba(242,181,68,.16);
+  --ok:#5CC98A; --danger:#F2766B; --warn:#F2A35C; --soon:#F2C062;
+  --input:#111214; --hover:#1A1C20; --overlay:rgba(5,6,8,.6); --shadow:none;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
-body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); font-size:13px; height:100vh; display:flex; flex-direction:column; overflow:hidden;}
+body{font-family:var(--font); background:var(--bg); color:var(--text); font-size:14px; line-height:1.4; height:100vh; display:flex; overflow:hidden; -webkit-font-smoothing:antialiased;}
+button{font-family:inherit; color:inherit;}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.mono{font-family:var(--mono); font-feature-settings:"tnum";}
+.ico{width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round;}
+kbd{font-family:var(--mono); font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:5px; padding:1px 6px;}
 
-/* ---------- header ---------- */
-header{display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--border); flex-wrap:wrap;}
-header h1{font-size:15px; margin-right:4px;}
-#search{padding:4px 8px; border:1px solid var(--border); border-radius:6px; width:180px; font-size:13px;}
-.hbtn{padding:4px 9px; border:1px solid var(--border); border-radius:6px; background:var(--panel); cursor:pointer; font-size:12px; color:var(--text); white-space:nowrap;}
-.hbtn:hover{background:#f0f1f4;}
-.hbtn.active{background:var(--accent); color:#fff; border-color:var(--accent);}
-#urgentBadge{cursor:pointer; border-radius:6px; padding:4px 9px; font-size:12px; border:1px solid var(--border); background:var(--panel);}
-#urgentBadge.hot{background:#fef2f2; border-color:#fecaca; color:var(--danger); font-weight:600;}
-#urgentBadge.active{outline:2px solid var(--danger);}
-.tagfilter{display:flex; gap:4px; flex-wrap:wrap; align-items:center;}
-.chip{display:inline-flex; align-items:center; gap:4px; padding:1px 7px; border-radius:10px; font-size:11px; cursor:pointer; border:1px solid transparent; line-height:16px; white-space:nowrap;}
-.chip.off{opacity:.45;}
-.chip .dot{width:7px;height:7px;border-radius:50%;}
+/* ================= SIDEBAR ================= */
+#side{width:248px; flex:none; display:flex; flex-direction:column; gap:2px; padding:16px 12px; background:var(--side); border-right:1px solid var(--line); overflow-y:auto;}
+.brand{display:flex; align-items:center; gap:10px; padding:2px 10px 14px;}
+.brand .logo{width:26px; height:26px; border-radius:7px; background:var(--accent); color:var(--accent-ink); display:inline-flex; align-items:center; justify-content:center;}
+.brand b{font-weight:600; font-size:15px; letter-spacing:-.01em;}
+.nav{display:flex; align-items:center; gap:10px; width:100%; min-height:36px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:var(--tx2); text-align:left; font-size:13.5px; cursor:pointer;}
+.nav:hover{background:var(--hover); color:var(--text);}
+.nav.on{background:var(--hover); color:var(--text); font-weight:500;}
+.nav .count{margin-left:auto; font-size:12px; color:var(--muted); font-family:var(--mono);}
+.nav .dot{width:8px; height:8px; border-radius:50%; flex:none;}
+.nav .av{width:20px; height:20px; font-size:9px; box-shadow:none;}
+.sec{font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:18px 10px 6px;}
+.side-foot{margin-top:auto; padding-top:14px; display:flex; flex-direction:column; gap:2px;}
+#cloudStatus{font-size:11.5px; color:var(--muted); padding:6px 10px; font-family:var(--mono);}
+.tools-row{display:flex; gap:4px; padding:4px 6px; flex-wrap:wrap;}
+.tbtn{height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--tx2); font-size:12px; cursor:pointer;}
+.tbtn:hover{color:var(--text); border-color:var(--line2);}
+.tbtn.active{background:var(--text); color:var(--bg); border-color:var(--text);}
+#frogChip{display:none; margin:10px 4px 0; padding:10px 12px; border-radius:10px; font-size:12.5px; cursor:pointer; background:var(--accent-soft); color:var(--text); line-height:1.4;}
+#frogChip.show{display:block;}
+#frogChip small{display:block; font-size:11px; color:var(--accent-tx); font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:2px;}
+
+/* ================= MAIN ================= */
+#main{flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden;}
+.topbar{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; padding:22px 24px 14px; flex-wrap:wrap;}
+.topbar .date{font-size:12.5px; color:var(--muted);}
+.topbar h1{font-size:24px; font-weight:600; letter-spacing:-.02em; line-height:1.2;}
+.topbar .sum{font-size:13px; color:var(--tx2); margin-top:2px;}
+.topbar .right{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+.search{display:flex; align-items:center; gap:8px; height:38px; width:300px; max-width:100%; padding:0 12px; border:1px solid var(--line); border-radius:9px; background:var(--input); color:var(--muted);}
+.search input{flex:1; min-width:0; border:0; background:transparent; color:var(--text); font:inherit; font-size:13.5px; outline:none;}
+.btnp{display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 16px; border:0; border-radius:9px; background:var(--accent); color:var(--accent-ink); font-weight:600; font-size:13.5px; cursor:pointer;}
+.btnp:hover{filter:brightness(1.06);}
+.btng{display:inline-flex; align-items:center; gap:7px; height:38px; padding:0 14px; border:1px solid var(--line); border-radius:9px; background:transparent; color:var(--text); font-size:13px; cursor:pointer;}
+.btng:hover{border-color:var(--line2);}
+.mobbtn{display:none;}
+.filters{display:flex; gap:8px; padding:0 24px 14px; flex-wrap:wrap; align-items:center;}
+.chip{display:inline-flex; align-items:center; gap:7px; height:32px; padding:0 12px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--tx2); font-size:13px; white-space:nowrap; cursor:pointer; user-select:none;}
+.chip:hover{border-color:var(--line2); color:var(--text);}
+.chip.on{background:var(--text); color:var(--bg); border-color:var(--text);}
+.chip .n{font-size:11.5px; opacity:.7; font-family:var(--mono);}
+.chip .dot{width:7px; height:7px; border-radius:50%;}
+.chip.warn{border-color:var(--hard-tx); color:var(--hard-tx);}
+.chip.warn.on{background:var(--hard-tx); color:var(--bg);}
+.vsep{width:1px; height:20px; background:var(--line); margin:0 4px;}
 .spacer{flex:1;}
 
-/* ---------- board (3 plovoucí sloupce jako ve Wordu) ---------- */
-#board{flex:1; padding:10px 12px; overflow-y:auto; overflow-x:hidden;}
-@media (max-width:1100px){ #board{column-count:2;} }
-@media (max-width:700px){ #board{column-count:1;} }
-.col{background:#ebedf0; border:1px solid var(--border); border-radius:8px; min-width:0; display:flex; flex-direction:column; break-inside:avoid; margin-bottom:10px;}
-.col-head{display:flex; align-items:center; gap:6px; padding:7px 9px 4px; cursor:grab;}
+/* ================= BOARD ================= */
+#board{flex:1; padding:2px 24px 40px; overflow-y:auto; overflow-x:hidden;}
+.col{display:flex; flex-direction:column; gap:8px; min-width:0; padding:10px; border-radius:14px; background:var(--colbg); break-inside:avoid;}
+.col.today{background:var(--colbg-today); box-shadow:inset 0 0 0 1px var(--accent-soft);}
 .col.col-over{outline:2px dashed var(--accent); outline-offset:-2px;}
-.lane-over{outline:2px dashed var(--accent); outline-offset:-4px; border-radius:10px;}
+.lane-over{outline:2px dashed var(--accent); outline-offset:-4px; border-radius:14px;}
 .col.col-dragging{opacity:.5;}
-.col-title{font-weight:600; font-size:13px; cursor:text; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.col-title input{width:100%; font-size:13px; font-weight:600; border:1px solid var(--accent); border-radius:4px; padding:1px 4px;}
-.col-count{color:var(--muted); font-size:11px;}
-.col-x{border:none; background:none; color:var(--muted); cursor:pointer; font-size:13px; padding:0 3px; border-radius:4px;}
-.col-x:hover{color:var(--danger); background:#fff;}
-.quickadd{margin:2px 8px 6px; padding:4px 8px; border:1px dashed #c3c7cf; border-radius:6px; width:calc(100% - 16px); font-size:12px; background:transparent;}
-.quickadd:focus{background:#fff; border-style:solid; outline:none; border-color:var(--accent);}
-.tasklist{padding:0 8px 8px; display:flex; flex-direction:column; gap:3px; min-height:24px; flex:1;}
+.col-head{display:flex; align-items:center; gap:8px; padding:2px 4px 0; min-height:28px; cursor:grab;}
+.col-title{font-weight:600; font-size:13.5px; cursor:text; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.col-title input{width:100%; font:inherit; font-weight:600; border:1px solid var(--accent); border-radius:5px; padding:1px 6px; background:var(--input); color:var(--text);}
+.col-count{color:var(--muted); font-size:12px; font-family:var(--mono);}
+.col-hint{margin-left:auto; font-size:11.5px; color:var(--muted); white-space:nowrap;}
+.col-menu{border:0; background:transparent; color:var(--muted); cursor:pointer; width:26px; height:26px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; flex:none;}
+.col-menu:hover{background:var(--hover); color:var(--text);}
+.cap{display:flex; flex-direction:column; gap:5px; padding:0 4px 4px;}
+.cap .row{display:flex; justify-content:space-between; font-size:11.5px; color:var(--tx2);}
+.bar{display:block; height:3px; border-radius:2px; background:var(--line); overflow:hidden; flex:1;}
+.cap .bar{flex:none;}
+.bar > i{display:block; height:100%; border-radius:2px;}
+.tasklist{display:flex; flex-direction:column; gap:6px; min-height:12px;}
+.empty{font-size:12.5px; color:var(--muted); padding:14px 10px; text-align:center; border:1px dashed var(--line); border-radius:10px;}
+.popmenu{position:fixed; z-index:80; min-width:220px; padding:6px; border-radius:10px; background:var(--card); border:1px solid var(--line); box-shadow:0 12px 32px rgba(0,0,0,.25);}
+.popmenu button{display:flex; width:100%; align-items:center; gap:8px; min-height:34px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:var(--text); font-size:13px; text-align:left; cursor:pointer;}
+.popmenu button:hover{background:var(--hover);}
+.popmenu button.danger{color:var(--danger);}
+.popmenu hr{border:0; border-top:1px solid var(--line); margin:4px 0;}
 
-/* ---------- task row ---------- */
-.task{background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:3px 7px; display:flex; align-items:center; gap:6px; cursor:grab; min-height:var(--row-h); position:relative; overflow:hidden;}
-.task:hover{border-color:#b9bec9; box-shadow:0 1px 2px rgba(0,0,0,.06);}
+/* quick add */
+.addwrap{margin:0;}
+.quickadd{width:100%; height:36px; padding:0 10px; border:1px dashed var(--line2); border-radius:9px; background:transparent; color:var(--text); font:inherit; font-size:13px;}
+.quickadd::placeholder{color:var(--muted);}
+.quickadd:focus{background:var(--input); border-style:solid; outline:none; border-color:var(--accent);}
+.qa-panel{display:none; margin-top:-1px; border:1px solid var(--accent); border-top:none; border-radius:0 0 9px 9px; background:var(--card); padding:10px; flex-direction:column; gap:8px;}
+.qa-panel textarea, .qa-panel input[type=date]{width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:7px; background:var(--input); color:var(--text); font:inherit; font-size:13px;}
+.qa-panel textarea{field-sizing:content; min-height:40px; resize:vertical;}
+
+/* task card */
+.task{position:relative; display:flex; gap:10px; align-items:flex-start; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); cursor:pointer; box-shadow:var(--shadow);}
+.task:hover{background:var(--card2); border-color:var(--line2);}
 .task.dragging{opacity:.4;}
-.task.done .ttl{text-decoration:line-through; color:var(--muted);}
-.task input[type=checkbox]{cursor:pointer; flex-shrink:0;}
-.ttl{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;}
-.mini{display:flex; gap:4px; align-items:center; flex-shrink:0;}
-.tdot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
-.pchip{font-size:10px; padding:0 5px; border-radius:8px; line-height:15px; white-space:nowrap;}
-.due{font-size:10px; padding:0 5px; border-radius:8px; line-height:15px; background:#eef0f3; color:var(--muted); white-space:nowrap;}
-.due.overdue{background:#fef2f2; color:var(--danger); font-weight:700;}
-.due.today{background:#fff7ed; color:var(--warn); font-weight:700;}
-.due.soon{background:#fefce8; color:var(--soon); font-weight:600;}
-.hasextra{color:var(--muted); font-size:10px;}
-.subtog{font-size:10px; padding:0 5px; border-radius:8px; background:#eef0f3; color:var(--muted); cursor:pointer; white-space:nowrap; line-height:15px; flex-shrink:0;}
-.drop-ind{height:2px; background:var(--accent); border-radius:1px; margin:1px 0;}
+.task.done{opacity:.55;}
+.task.done .ttl{text-decoration:line-through;}
+.task.returned{border-color:var(--accent);}
+.task > input[type=checkbox]{width:16px; height:16px; margin:2px 0 0; accent-color:var(--ok); cursor:pointer; flex:none;}
+.tbody{flex:1; min-width:0; display:flex; flex-direction:column; gap:7px;}
+.trow{display:flex; gap:8px; align-items:flex-start;}
+.ttl{flex:1; min-width:0; font-size:14px; font-weight:500; line-height:1.38; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+.prio{font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent-tx); letter-spacing:-.04em; flex:none;}
+.meta{display:flex; align-items:center; gap:4px 10px; font-size:12px; color:var(--muted); flex-wrap:wrap; min-height:20px;}
+.meta .pj{display:inline-flex; align-items:center; gap:6px;}
+.meta .pj i{width:7px; height:7px; border-radius:50%; display:inline-block;}
+.tag{display:inline-flex; align-items:center; gap:4px; height:20px; padding:0 7px; border-radius:5px; font-size:11.5px; font-weight:500; white-space:nowrap;}
+.tag.hard{background:var(--hard-bg); color:var(--hard-tx);}
+.tag.today{background:var(--today-bg); color:var(--today-tx);}
+.tag.ctx{background:var(--hover); color:var(--tx2);}
+.tag.from{background:var(--hover); color:var(--tx2);}
+.soft{color:var(--muted);}
+.soft.past{opacity:.75;}
+.avs{margin-left:auto; display:inline-flex;}
+.av{width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; color:#141518; box-shadow:0 0 0 2px var(--card); flex:none;}
+.avs .av + .av{margin-left:-6px;}
+.wait{display:block; font-size:12px; color:var(--tx2); padding:6px 9px; border-radius:7px; background:var(--bg); border:1px dashed var(--line2);}
+.wait b{color:var(--text); font-weight:500;}
+.wait.hot{border-color:var(--accent);}
+.subprog{display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--muted); cursor:pointer;}
+.sublist{display:flex; flex-direction:column; gap:2px; margin-top:-2px;}
+.sublist label{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--tx2); min-height:26px; cursor:pointer;}
+.sublist input{accent-color:var(--ok); width:14px; height:14px;}
+.sublist .d{text-decoration:line-through; color:var(--muted);}
+.drop-ind{height:2px; background:var(--accent); border-radius:1px;}
+#addColBtn{min-height:40px; border:1px dashed var(--line2); border-radius:12px; background:transparent; color:var(--muted); cursor:pointer; font-size:13px;}
+#addColBtn:hover{color:var(--text);}
+</style>
+<style>
 
 /* ---------- Manuál na Milana (večerní deník) ---------- */
-#frogChip{display:none; align-items:center; gap:5px; padding:3px 10px; border-radius:12px; font-size:12px; cursor:pointer; background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; white-space:nowrap; max-width:340px; overflow:hidden; text-overflow:ellipsis;}
-#frogChip.show{display:inline-flex;}
 #journal{position:fixed; inset:0; background:radial-gradient(1200px 600px at 80% -10%, rgba(245,197,24,.07), transparent 60%), #14110f; color:#efe7dc; z-index:60; display:none; overflow-y:auto; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.5;}
 #journal.show{display:block;}
 #journal .jhead{position:sticky; top:0; background:rgba(20,17,15,.93); backdrop-filter:blur(8px); border-bottom:1px solid #2c2620; padding:15px 24px; display:flex; align-items:baseline; gap:14px; z-index:5; flex-wrap:wrap;}
@@ -153,150 +243,251 @@ header h1{font-size:15px; margin-right:4px;}
 #manualBody p{margin:5px 0;}
 .msaved{font-size:12px; color:#8a8178; font-style:italic;}
 
-#addColBtn{min-width:150px; height:34px; border:1px dashed #c3c7cf; border-radius:8px; background:transparent; color:var(--muted); cursor:pointer; font-size:12px;}
-#addColBtn:hover{background:#ebedf0;}
 
-/* ---------- modal ---------- */
-#overlay{position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:50;}
-#overlay.show{display:flex;}
-.modal{background:var(--panel); border-radius:10px; width:560px; max-width:100%; max-height:90vh; overflow-y:auto; padding:16px; box-shadow:0 10px 40px rgba(0,0,0,.2);}
-.modal h2{font-size:14px; margin-bottom:10px; color:var(--muted); font-weight:600;}
-.modal label{display:block; font-size:11px; color:var(--muted); margin:10px 0 3px; text-transform:uppercase; letter-spacing:.03em;}
-.modal input[type=text], .modal input[type=date], .modal select, .modal textarea{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:inherit;}
-.modal textarea{min-height:70px; resize:vertical;}
-.comments{max-height:320px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:4px 8px; background:var(--bg);}
-.cm{display:flex; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);}
-.cm:last-child{border-bottom:none;}
-.cm-av{width:26px; height:26px; flex-shrink:0; border-radius:50%; background:#94a3b8; color:#fff; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center;}
+/* ================= DETAIL ÚKOLU (boční panel) ================= */
+#overlay{position:fixed; inset:0; background:var(--overlay); display:none; z-index:65;}
+#overlay.show{display:block;}
+.modal{position:absolute; top:0; right:0; bottom:0; width:580px; max-width:100%; background:var(--card); border-left:1px solid var(--line); box-shadow:-24px 0 60px rgba(0,0,0,.35); display:flex; flex-direction:column; color:var(--text);}
+.modal.center{position:relative; margin:6vh auto; width:560px; max-width:calc(100% - 32px); max-height:88vh; border:1px solid var(--line); border-radius:14px; right:auto; top:auto; bottom:auto; overflow:hidden;}
+.d-head{display:flex; align-items:center; gap:8px; padding:12px 14px 12px 22px; border-bottom:1px solid var(--line); flex:none;}
+.d-crumb{display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:var(--tx2); min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
+.d-crumb i{width:8px; height:8px; border-radius:50%; flex:none;}
+.d-body{flex:1; overflow-y:auto; padding:20px 22px 28px; display:flex; flex-direction:column; gap:24px;}
+.d-foot{flex:none; display:flex; gap:8px; align-items:center; padding:12px 22px; border-top:1px solid var(--line); background:var(--card);}
+.d-title{field-sizing:content; width:100%; resize:none; border:0; padding:0; background:transparent; color:var(--text); font:inherit; font-size:22px; font-weight:600; letter-spacing:-.015em; line-height:1.28; outline:none; min-height:1.3em;}
+.props{display:grid; grid-template-columns:108px minmax(0,1fr); column-gap:14px; row-gap:14px; align-items:start;}
+.props > .pl{font-size:13px; color:var(--muted); padding-top:6px;}
+.seg{display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+.sbtn{display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 11px; border-radius:7px; border:1px solid var(--line); background:transparent; color:var(--tx2); font-size:12.5px; cursor:pointer; white-space:nowrap;}
+.sbtn:hover{border-color:var(--line2); color:var(--text);}
+.sbtn.on{background:var(--text); color:var(--bg); border-color:var(--text);}
+.sbtn.pill{border-radius:999px;}
+.sbtn.pill.on{background:var(--hover); color:var(--text);}
+.sbtn.hard.on{background:var(--hard-bg); color:var(--hard-tx); border-color:var(--hard-tx);}
+.sbtn.pri.on{background:var(--today-bg); color:var(--today-tx); border-color:var(--accent);}
+.sbtn i{width:7px; height:7px; border-radius:50%;}
+.sbtn.add{border-style:dashed;}
+.hint{font-size:12px; color:var(--muted); margin-top:6px; display:block;}
+.fld{height:32px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--input); color:var(--text); font:inherit; font-size:13px;}
+input[type=date].fld{font-family:var(--mono); font-size:12.5px;}
+body.dark input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.6);}
+.blk{display:flex; flex-direction:column; gap:8px;}
+.blk > .bt{font-size:13px; font-weight:600; display:flex; align-items:center; gap:10px;}
+.waitbox{display:flex; flex-direction:column; gap:10px; padding:14px; border-radius:10px; border:1px dashed var(--accent); background:var(--accent-soft);}
+.waitbox .g{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;}
+.waitbox label{display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--tx2);}
+.note-area{field-sizing:content; min-height:110px; width:100%; resize:vertical; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--input); color:var(--text); font:inherit; font-size:14px; line-height:1.55; outline:none;}
+.note-area:focus{border-color:var(--accent);}
+.subrow{display:flex; align-items:center; gap:10px; min-height:38px; border-bottom:1px solid var(--line);}
+.subrow input[type=checkbox]{width:16px; height:16px; accent-color:var(--ok); flex:none;}
+.subrow input[type=text]{flex:1; min-width:0; border:0; background:transparent; color:var(--text); font:inherit; font-size:13.5px; outline:none;}
+.subrow input.d{text-decoration:line-through; color:var(--muted);}
+.xbtn{width:28px; height:28px; border:0; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex:none;}
+.xbtn:hover{background:var(--hover); color:var(--danger);}
+.subnew{height:38px; border:0; background:transparent; color:var(--text); font:inherit; font-size:13.5px; outline:none;}
+.drop{display:flex; align-items:center; justify-content:center; gap:8px; min-height:56px; border:1px dashed var(--line2); border-radius:10px; color:var(--tx2); font-size:13px; cursor:pointer;}
+.drop:hover{color:var(--text); border-color:var(--accent);}
+.attachlist{display:flex; gap:8px; flex-wrap:wrap;}
+.att{position:relative; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--input);}
+.att img{width:92px; height:68px; object-fit:cover; display:block; cursor:zoom-in;}
+.att .fname{display:block; padding:8px; font-size:12px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--accent-tx);}
+.att .rm{position:absolute; top:3px; right:3px; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:11px; line-height:16px; width:18px;}
+.comments{display:flex; flex-direction:column; gap:12px;}
+.cm{display:flex; gap:10px;}
+.cm-av{width:26px; height:26px; flex:none; border-radius:50%; background:#9AA5B4; color:#141518; font-weight:700; font-size:11px; display:flex; align-items:center; justify-content:center;}
 .cm.mine .cm-av{background:var(--accent);}
 .cm-main{flex:1; min-width:0;}
-.cm-head{display:flex; gap:8px; align-items:baseline; font-size:12px;}
-.cm-head span{color:var(--muted); font-size:11px;}
-.cm-rm{margin-left:auto; border:none; background:none; color:var(--muted); font-size:10px; cursor:pointer;}
+.cm-head{display:flex; gap:8px; align-items:baseline; font-size:12.5px;}
+.cm-head span{color:var(--muted); font-size:11.5px; font-family:var(--mono);}
+.cm-rm{margin-left:auto; border:none; background:none; color:var(--muted); font-size:11px; cursor:pointer;}
 .cm-rm:hover{color:var(--danger);}
-.cm-body{white-space:pre-wrap; word-wrap:break-word; margin-top:2px; line-height:1.4;}
-.cm-empty{color:var(--muted); font-size:12px; padding:8px 0;}
-.cm-new{display:flex; gap:6px; margin-top:6px; align-items:flex-end;}
-.cm-new textarea{min-height:44px !important; flex:1;}
-.mrow{display:flex; gap:10px;}
-.mrow>div{flex:1;}
-.tagpick{display:flex; gap:5px; flex-wrap:wrap;}
-.attachlist{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
-.att{position:relative; border:1px solid var(--border); border-radius:6px; overflow:hidden;}
-.att img{width:84px; height:64px; object-fit:cover; display:block; cursor:zoom-in;}
-.att .fname{display:block; padding:6px; font-size:11px; max-width:130px; overflow:hidden; text-overflow:ellipsis; cursor:pointer; color:var(--accent);}
-.att .rm{position:absolute; top:1px; right:1px; background:rgba(0,0,0,.55); color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px; line-height:14px; width:16px;}
-.pastehint{font-size:11px; color:var(--muted); margin-top:4px;}
-.mfoot{display:flex; gap:8px; margin-top:16px;}
-.btn{padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:var(--panel); cursor:pointer; font-size:13px;}
-.btn.primary{background:var(--accent); color:#fff; border-color:var(--accent);}
-.btn.danger{color:var(--danger); border-color:#fecaca;}
+.cm-body{white-space:pre-wrap; overflow-wrap:anywhere; margin-top:2px; line-height:1.45; font-size:13.5px;}
+.cm-empty{color:var(--muted); font-size:13px;}
+.cm-new{display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--input);}
+.cm-new textarea{field-sizing:content; min-height:44px; border:0; resize:none; background:transparent; color:var(--text); font:inherit; font-size:13.5px; outline:none;}
+.cm-new .r{display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--muted);}
+.btn{display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--text); cursor:pointer; font-size:13px; font-weight:500;}
+.btn:hover{border-color:var(--line2);}
+.btn.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600;}
+.btn.danger{color:var(--danger); border-color:transparent;}
+.btn.danger:hover{border-color:var(--danger);}
+.btn.sm{height:30px; padding:0 12px; font-size:12.5px;}
 
-/* tags manager */
-.tagmg-row{display:flex; align-items:center; gap:8px; padding:4px 0;}
-.tagmg-row input[type=color]{width:26px; height:22px; border:none; padding:0; background:none; cursor:pointer;}
+/* správa štítků */
+.mpad{padding:20px 22px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;}
+.mpad h2{font-size:17px; font-weight:600; margin-bottom:6px;}
+.tagmg-row{display:flex; align-items:center; gap:8px; padding:3px 0;}
+.tagmg-row input[type=color]{width:28px; height:28px; border:none; padding:0; background:none; cursor:pointer;}
 .tagmg-row .nm{flex:1;}
-.newtag{display:flex; gap:6px; margin-top:10px; align-items:center;}
+.newtag{display:flex; gap:6px; margin-top:12px; align-items:center;}
 .newtag input[type=text]{flex:1;}
-small.sect{display:block; margin-top:12px; font-weight:700; color:var(--muted);}
-#imgview{position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center; z-index:99; cursor:zoom-out;}
+small.sect{display:block; margin-top:14px; font-size:11px; font-weight:500; letter-spacing:.08em; color:var(--muted);}
+#imgview{position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:99; cursor:zoom-out;}
 #imgview img{max-width:95vw; max-height:95vh;}
 #imgview.show{display:flex;}
-.modal input[type=date]{position:relative; padding-left:34px;}
-.modal input[type=date]::-webkit-calendar-picker-indicator{position:absolute; left:8px; top:50%; transform:translateY(-50%); cursor:pointer;}
-.addwrap input[type=date]{position:relative; padding-left:34px !important;}
-.addwrap input[type=date]::-webkit-calendar-picker-indicator{position:absolute; left:8px; top:50%; transform:translateY(-50%); cursor:pointer;}
-body.dark input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.6);}
-/* ---------- dark režim (černá + gold) ---------- */
-body.dark{ --bg:#0e0e10; --panel:#191a1d; --border:#33343a; --text:#efe7cf; --muted:#9c9483; --accent:#e5b53a; }
-body.dark .col{background:#141518;}
-body.dark .quickadd{border-color:#44454c;}
-body.dark #search, body.dark .quickadd:focus,
-body.dark .modal input[type=text], body.dark .modal input[type=date], body.dark .modal select, body.dark .modal textarea{background:#0e0e10; color:var(--text);}
-body.dark .hbtn:hover{background:#26262d;}
-body.dark .btn.primary, body.dark .hbtn.active{color:#14110f;}
-body.dark .qa-ok{color:#14110f !important;}
-body.dark .addwrap > div{background:var(--panel) !important; border-color:var(--accent) !important;}
-body.dark .addwrap input, body.dark .addwrap textarea{background:#0e0e10 !important; color:var(--text);}
-body.dark .due{background:#26262d; color:var(--muted);}
-body.dark .subtog{background:#26262d;}
-body.dark #urgentBadge.hot{background:#2a1512; border-color:#5b2620; color:#f0655a;}
-/* ---------- dashboard ---------- */
-#dash{position:fixed; inset:0; background:var(--bg); z-index:55; display:none; overflow-y:auto;}
-#dash.show{display:block;}
-.dash-head{position:sticky; top:0; background:var(--panel); border-bottom:1px solid var(--border); padding:12px 18px; display:flex; align-items:center; gap:12px;}
-.dash-head h1{font-size:16px; flex:1;}
-.dash-body{max-width:900px; margin:0 auto; padding:18px; display:flex; flex-direction:column; gap:18px;}
-.dash-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px;}
-.dcard{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px;}
-.dcard .dlabel{font-size:12px; color:var(--muted); margin-bottom:6px;}
-.dcard .dnum{font-size:30px; font-weight:800; color:var(--accent); line-height:1;}
-.dcard .dsub{font-size:11px; color:var(--muted); margin-top:4px;}
-.dsection h2{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:0 0 8px;}
-.duerow{display:flex; align-items:center; gap:10px; padding:8px 11px; border:1px solid var(--border); border-radius:8px; background:var(--panel); margin-bottom:6px;}
-.duerow .dd{flex:1; font-size:13px;}
-.duerow .dc{font-size:12px; color:var(--muted);}
-.duerow.overdue{border-color:#fecaca; background:#fef2f2;}
-.duerow.overdue .dd{color:var(--danger); font-weight:600;}
-body.dark .duerow.overdue{background:#2a1512; border-color:#5b2620;}
-/* ---------- poznámky (sticky notes) ---------- */
-#notes{position:fixed; inset:0; background:var(--bg); z-index:58; display:none; overflow-y:auto;}
-#notes.show{display:block;}
-.notes-head{position:sticky; top:0; background:var(--panel); border-bottom:1px solid var(--border); padding:10px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
-.notes-head h1{font-size:16px;}
-.notes-body{max-width:760px; margin:0 auto; padding:14px; display:flex; flex-direction:column; gap:12px;}
-.note{background:#fff8c9; border:1px solid #e9dd8a; border-radius:10px; padding:10px 12px; box-shadow:0 1px 3px rgba(0,0,0,.08); color:#2a2a20;}
-body.dark .note{background:#2a2717; border-color:#4a441f; color:#efe7cf;}
+
+/* ================= OBRAZOVKY PŘES CELOU PLOCHU ================= */
+.screen{position:fixed; inset:0; background:var(--bg); z-index:55; display:none; overflow-y:auto; color:var(--text);}
+.screen.show{display:block;}
+.scr-head{position:sticky; top:0; z-index:3; background:var(--bg); border-bottom:1px solid var(--line); padding:14px 24px; display:flex; align-items:center; gap:12px;}
+.scr-head h1{font-size:17px; font-weight:600; flex:1;}
+.dash-body{max-width:920px; margin:0 auto; padding:24px; display:flex; flex-direction:column; gap:22px;}
+.dash-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px;}
+.dcard{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px;}
+.dcard .dlabel{font-size:12.5px; color:var(--muted); margin-bottom:8px;}
+.dcard .dnum{font-size:30px; font-weight:600; letter-spacing:-.02em; line-height:1; font-family:var(--mono);}
+.dcard .dsub{font-size:12px; color:var(--muted); margin-top:6px;}
+.dsection h2{font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 10px;}
+.duerow{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:9px; background:var(--card); margin-bottom:6px;}
+.duerow .dd{flex:1; font-size:13.5px;}
+.duerow .dc{font-size:12.5px; color:var(--muted); font-family:var(--mono);}
+.duerow.overdue{border-color:var(--hard-tx);}
+.duerow.overdue .dd{color:var(--hard-tx); font-weight:600;}
+
+/* fokus Dnes */
+.focus{display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:36px; max-width:1160px; margin:0 auto; padding:28px 24px 64px;}
+.f-top{display:flex; flex-direction:column; gap:16px; margin-bottom:28px;}
+.f-top h2{font-size:32px; font-weight:600; letter-spacing:-.025em;}
+.f-grp{margin-bottom:28px;}
+.f-gh{display:flex; align-items:baseline; gap:10px; padding-bottom:8px; border-bottom:1px solid var(--line); margin-bottom:4px;}
+.f-gh h3{font-size:15px; font-weight:600;}
+.f-gh span{font-size:12.5px; color:var(--muted);}
+.frow{display:flex; align-items:center; gap:12px; min-height:50px; padding:4px 10px; border-radius:10px; cursor:pointer;}
+.frow:hover{background:var(--hover);}
+.frow input[type=checkbox]{width:18px; height:18px; accent-color:var(--ok); flex:none;}
+.frow .rt{flex:1; min-width:0; font-size:14.5px; font-weight:500;}
+.frow .rt small{display:block; font-size:12.5px; font-weight:400; color:var(--muted); margin-top:1px;}
+.frow .est{font-size:12.5px; color:var(--tx2); width:60px; text-align:right; font-family:var(--mono);}
+.frow.done .rt{text-decoration:line-through; color:var(--muted);}
+.panel{display:flex; flex-direction:column; gap:10px; padding:16px; border-radius:14px; background:var(--card); border:1px solid var(--line); margin-bottom:14px;}
+.panel.hot{border-color:var(--accent);}
+.panel h4{font-size:13.5px; font-weight:600;}
+.panel p{font-size:12.5px; color:var(--tx2); line-height:1.5;}
+.panel .it{display:flex; justify-content:space-between; gap:8px; font-size:13px; cursor:pointer;}
+.panel .it > :last-child{white-space:nowrap; flex:none;}
+
+/* poznámky */
+.notes-head{gap:10px; flex-wrap:wrap;}
+.notes-body{max-width:760px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:12px;}
+.note{background:#FFF6CF; border:1px solid #EADF9C; border-radius:12px; padding:12px 14px; color:#2A2A20;}
+body.dark .note{background:#24221A; border-color:#3F3A22; color:#EDEEF0;}
 .note-top{display:flex; align-items:center; gap:8px;}
-.note-title{flex:1; font-weight:700; font-size:15px; border:none; background:transparent; color:inherit; outline:none;}
-.note-toolbar{display:flex; gap:4px; margin:6px 0;}
-.note-toolbar button{width:28px; height:24px; border:1px solid rgba(0,0,0,.15); background:rgba(255,255,255,.45); border-radius:5px; cursor:pointer; font-size:13px; color:inherit;}
-body.dark .note-toolbar button{background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.15);}
-.note-body{min-height:60px; font-size:14px; line-height:1.5; outline:none; word-break:break-word;}
-.note-actions{display:flex; gap:8px; margin-top:8px; justify-content:flex-end;}
-.note-actions button{border:none; background:transparent; cursor:pointer; font-size:17px; color:inherit; opacity:.55; padding:2px 4px;}
-.note-actions button:hover{opacity:1;}
+.note-title{flex:1; font-weight:600; font-size:15px; border:none; background:transparent; color:inherit; outline:none; font-family:inherit;}
+.note-toolbar{display:flex; gap:4px; margin:8px 0;}
+.note-toolbar button{width:28px; height:26px; border:1px solid rgba(127,127,127,.3); background:transparent; border-radius:6px; cursor:pointer; font-size:13px; color:inherit;}
+.note-body{min-height:60px; font-size:14px; line-height:1.55; outline:none; overflow-wrap:anywhere;}
+.note-actions{display:flex; gap:6px; margin-top:8px; justify-content:flex-end;}
+.note-actions button{border:1px solid rgba(127,127,127,.3); background:transparent; cursor:pointer; font-size:12px; color:inherit; padding:4px 10px; border-radius:6px; font-family:inherit;}
+
+/* ================= MOBIL ================= */
+@media (max-width:900px){
+  #side{position:fixed; left:0; top:0; bottom:0; z-index:70; transform:translateX(-100%); transition:transform .18s ease; box-shadow:12px 0 40px rgba(0,0,0,.35);}
+  body.side-open #side{transform:none;}
+  .mobbtn{display:inline-flex;}
+  .topbar{padding:14px 16px 10px;}
+  .topbar > div:first-child{align-items:center !important;}
+  .topbar .right{width:100%; flex-wrap:nowrap;}
+  .topbar .search{flex:1; width:auto;}
+  .topbar .search kbd{display:none;}
+  #newTaskBtn{padding:0 12px;}
+  #newTaskBtn .lbl{display:none;}
+  .filters{padding:0 16px 12px; flex-wrap:nowrap; overflow-x:auto;}
+  #board{padding:2px 16px 32px;}
+  .modal{width:100%;}
+  .props{grid-template-columns:minmax(0,1fr); row-gap:6px;}
+  .props > .pl{padding-top:8px;}
+  .focus{grid-template-columns:minmax(0,1fr); padding:20px 16px 48px;}
+}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5V21h16"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21 11-8.6 8.6a5 5 0 0 1-7-7l8.5-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.3-2.4l7.9-7.9"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+</svg>
 
-<div id="loginOverlay" style="position:fixed;inset:0;background:#14110f;color:#efe7dc;z-index:200;display:none;align-items:center;justify-content:center;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
-  <div style="width:320px;max-width:90%;background:#1d1916;border:1px solid #2c2620;border-radius:14px;padding:26px;">
-    <h1 style="font-size:18px;margin-bottom:4px;">📋 Úkoly</h1>
-    <p style="color:#8a8178;font-size:13px;margin-bottom:18px;">Přihlas se pro přístup ke svým úkolům.</p>
-    <input id="authEmail" type="email" placeholder="E-mail" autocomplete="username" style="width:100%;padding:10px;margin-bottom:8px;background:#14110f;border:1px solid #2c2620;border-radius:8px;color:#efe7dc;font-size:14px;">
-    <input id="authPass" type="password" placeholder="Heslo (min. 6 znaků)" autocomplete="current-password" style="width:100%;padding:10px;margin-bottom:12px;background:#14110f;border:1px solid #2c2620;border-radius:8px;color:#efe7dc;font-size:14px;">
-    <button id="loginBtn" style="width:100%;padding:11px;margin-bottom:8px;background:#f5c518;color:#14110f;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;">Přihlásit se</button>
-    <button id="signupBtn" style="width:100%;padding:10px;background:transparent;color:#f5c518;border:1px solid #2c2620;border-radius:8px;font-size:13px;cursor:pointer;">Vytvořit účet (poprvé)</button>
-    <div id="authMsg" style="color:#8a8178;font-size:12px;margin-top:12px;min-height:16px;"></div>
+<div id="loginOverlay" style="position:fixed;inset:0;background:#0E0F11;color:#EDEEF0;z-index:200;display:none;align-items:center;justify-content:center;font-family:var(--font);">
+  <div style="width:340px;max-width:90%;background:#16181B;border:1px solid #2A2D33;border-radius:16px;padding:28px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="width:28px;height:28px;border-radius:8px;background:#F2B544;color:#141518;display:inline-flex;align-items:center;justify-content:center"><svg class="ico" style="stroke-width:2.6"><use href="#i-check"/></svg></span><h1 style="font-size:19px;font-weight:600">todomk</h1></div>
+    <p style="color:#A6AAB1;font-size:13px;margin-bottom:20px;">Přihlas se pro přístup ke svým úkolům.</p>
+    <input id="authEmail" type="email" placeholder="E-mail" autocomplete="username" aria-label="E-mail" style="width:100%;height:42px;padding:0 12px;margin-bottom:8px;background:#111214;border:1px solid #2A2D33;border-radius:9px;color:#EDEEF0;font:inherit;font-size:14px;">
+    <input id="authPass" type="password" placeholder="Heslo (min. 6 znaků)" autocomplete="current-password" aria-label="Heslo" style="width:100%;height:42px;padding:0 12px;margin-bottom:12px;background:#111214;border:1px solid #2A2D33;border-radius:9px;color:#EDEEF0;font:inherit;font-size:14px;">
+    <button id="loginBtn" style="width:100%;height:42px;margin-bottom:8px;background:#F2B544;color:#141518;border:none;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;">Přihlásit se</button>
+    <button id="signupBtn" style="width:100%;height:40px;background:transparent;color:#EDEEF0;border:1px solid #2A2D33;border-radius:9px;font-size:13px;cursor:pointer;">Vytvořit účet (poprvé)</button>
+    <div id="authMsg" style="color:#A6AAB1;font-size:12px;margin-top:12px;min-height:16px;"></div>
   </div>
 </div>
 
-<header>
-  <h1>📋 Úkoly</h1>
-  <input id="search" type="search" placeholder="Hledat…">
-  <span id="urgentBadge" title="Kliknutím vyfiltruješ blížící se termíny"></span>
-  <span id="frogChip" title="Dnešní žába – klikni pro otevření manuálu">🐸 <span id="frogChipTxt"></span></span>
-  <div class="tagfilter" id="tagFilter"></div>
-  <div class="tagfilter" id="personFilter"></div>
-  <div class="spacer"></div>
-  <span id="cloudStatus" title="Stav ukládání do cloudu" style="font-size:11px;color:var(--muted);white-space:nowrap;padding:0 4px;"></span>
-  <button class="hbtn" id="logoutBtn" style="display:none">Odhlásit</button>
-  <button class="hbtn" id="themeBtn">🌙 Tmavý</button>
-  <select id="colSel" class="hbtn" title="Počet sloupců (pamatuje si každý monitor zvlášť)" style="padding:4px 6px;">
-    <option value="auto">⯐ auto</option><option value="2">2 sl.</option><option value="3">3 sl.</option><option value="4">4 sl.</option><option value="5">5 sl.</option>
-  </select>
-  <button class="hbtn" id="manualBtn">🧭 Manuál na Milana</button>
-  <button class="hbtn" id="dashBtn">📊 Přehled</button>
-  <button class="hbtn" id="notesBtn">🗒️ Poznámky</button>
-  <button class="hbtn" id="hideDoneBtn">Skrýt hotové</button>
-  <button class="hbtn" id="tagsBtn">Štítky</button>
-  <button class="hbtn" id="exportBtn">Záloha</button>
-  <button class="hbtn" id="importBtn">Obnovit</button>
-  <input type="file" id="importFile" accept=".json" hidden>
-</header>
+<aside id="side">
+  <div class="brand">
+    <span class="logo"><svg class="ico" style="stroke-width:2.6;width:15px;height:15px"><use href="#i-check"/></svg></span>
+    <b>todomk</b>
+  </div>
+  <button class="nav on" id="navBoard" type="button"><svg class="ico"><use href="#i-board"/></svg>Nástěnka<span class="count" id="navBoardN"></span></button>
+  <button class="nav" id="navFocus" type="button"><svg class="ico"><use href="#i-sun"/></svg>Dnes – fokus<span class="count" id="navFocusN"></span></button>
+  <button class="nav" id="dashBtn" type="button"><svg class="ico"><use href="#i-chart"/></svg>Přehled</button>
+  <button class="nav" id="notesBtn" type="button"><svg class="ico"><use href="#i-note"/></svg>Poznámky</button>
+  <button class="nav" id="manualBtn" type="button"><svg class="ico"><use href="#i-book"/></svg>Manuál na Milana</button>
+  <div id="frogChip" title="Dnešní žába – klikni pro otevření manuálu"><small>Dnešní žába</small><span id="frogChipTxt"></span></div>
+  <div class="sec">Projekty</div>
+  <div id="tagFilter"></div>
+  <div class="sec">Lidé</div>
+  <div id="personFilter"></div>
+  <div class="side-foot">
+    <div class="tools-row">
+      <button class="tbtn" id="themeBtn" type="button">Světlý</button>
+      <select id="colSel" class="tbtn" title="Počet sloupců (pamatuje si každý monitor zvlášť)" aria-label="Počet sloupců">
+        <option value="auto">sloupce: auto</option><option value="2">2 sl.</option><option value="3">3 sl.</option><option value="4">4 sl.</option><option value="5">5 sl.</option>
+      </select>
+      <button class="tbtn" id="tagsBtn" type="button">Štítky</button>
+      <button class="tbtn" id="exportBtn" type="button">Záloha</button>
+      <button class="tbtn" id="importBtn" type="button">Obnovit</button>
+      <button class="tbtn" id="logoutBtn" type="button" style="display:none">Odhlásit</button>
+    </div>
+    <input type="file" id="importFile" accept=".json" hidden>
+    <span id="cloudStatus" title="Stav ukládání do cloudu"></span>
+  </div>
+</aside>
 
-<div id="board"></div>
+<div id="main">
+  <div class="topbar">
+    <div style="display:flex;gap:12px;align-items:flex-end">
+      <button class="btng mobbtn" id="sideBtn" type="button" aria-label="Menu" style="width:38px;padding:0;justify-content:center"><svg class="ico"><use href="#i-menu"/></svg></button>
+      <div>
+        <div class="date" id="todayLbl"></div>
+        <h1>Nástěnka</h1>
+        <div class="sum" id="sumLbl"></div>
+      </div>
+    </div>
+    <div class="right">
+      <label class="search"><svg class="ico"><use href="#i-search"/></svg><input id="search" type="search" placeholder="Hledat úkol, poznámku…" aria-label="Hledat"><kbd>/</kbd></label>
+      <button class="btnp" id="newTaskBtn" type="button" aria-label="Nový úkol"><svg class="ico" style="stroke-width:2.4"><use href="#i-plus"/></svg><span class="lbl">Nový úkol</span></button>
+    </div>
+  </div>
+  <div class="filters" id="filters">
+    <div id="ctxFilter" style="display:contents"></div>
+    <span class="vsep"></span>
+    <button class="chip warn" id="urgentBadge" type="button" title="Kliknutím vyfiltruješ pevné termíny do 3 dnů"></button>
+    <button class="chip" id="hideDoneBtn" type="button">Skrýt hotové</button>
+  </div>
+  <div id="board"></div>
+</div>
 
 <div id="journal">
   <div class="jhead">
@@ -408,27 +599,35 @@ body.dark .note-toolbar button{background:rgba(255,255,255,.06); border-color:rg
   </div>
 </div>
 
-<div id="notes">
-  <div class="notes-head">
-    <h1>🗒️ Poznámky</h1>
-    <button class="hbtn" id="notesNew">+ Nová</button>
-    <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;"><input type="checkbox" id="notesArch"> archiv</label>
-    <span style="flex:1"></span>
-    <button class="hbtn" id="notesClose">✕ Zavřít</button>
+
+<div id="focusScr" class="screen">
+  <div class="scr-head">
+    <h1>Dnes – fokus</h1>
+    <button class="btn sm" id="focusClose" type="button"><svg class="ico"><use href="#i-board"/></svg>Zpět na nástěnku</button>
+  </div>
+  <div id="focusBody"></div>
+</div>
+
+<div id="notes" class="screen">
+  <div class="scr-head notes-head">
+    <h1>Poznámky</h1>
+    <label style="font-size:13px;color:var(--tx2);display:flex;align-items:center;gap:6px;"><input type="checkbox" id="notesArch"> archiv</label>
+    <button class="btn sm primary" id="notesNew" type="button"><svg class="ico"><use href="#i-plus"/></svg>Nová</button>
+    <button class="btn sm" id="notesClose" type="button">Zavřít</button>
   </div>
   <div id="notesBody" class="notes-body"></div>
 </div>
 
-<div id="dash">
-  <div class="dash-head">
-    <h1>📊 Přehled</h1>
-    <button class="hbtn" id="dashClose">✕ Zavřít</button>
+<div id="dash" class="screen">
+  <div class="scr-head">
+    <h1>Přehled</h1>
+    <button class="btn sm" id="dashClose" type="button">Zavřít</button>
   </div>
   <div id="dashBody" class="dash-body"></div>
 </div>
 
-<div id="overlay"><div class="modal" id="modalBox"></div></div>
-<div id="imgview" onclick="this.classList.remove('show')"><img id="imgviewImg"></div>
+<div id="overlay"><div class="modal" id="modalBox" role="dialog" aria-modal="true"></div></div>
+<div id="imgview" onclick="this.classList.remove('show')"><img id="imgviewImg" alt="Náhled přílohy"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -519,7 +718,8 @@ function defaultState(){
     ],
     tasks: [],
     hideDone: false,
-    dark: false,
+    dark: true,
+    capacity: 7,
     notes: [],
     manual: DEFAULT_MANUAL,
     journal: []
@@ -602,7 +802,8 @@ function taskToRow(t){
     done_at: t.doneAt ? new Date(t.doneAt).toISOString() : null,
     assignees: t.assignees||[],
     subs: t.subs||[],
-    meta: { tags: t.tags||[], attachments: t.attachments||[], subsOpen: !!t.subsOpen },
+    meta: { tags: t.tags||[], attachments: t.attachments||[], subsOpen: !!t.subsOpen,
+            hard: !!t.hard, waitOn: t.waitOn||'', remind: t.remind||'', returned: !!t.returned },
     updated_by: ME ? ME.name : null
   };
 }
@@ -615,6 +816,7 @@ function rowToTask(r){
     doneAt: r.done_at ? Date.parse(r.done_at) : null,
     assignees: r.assignees||[], subs: r.subs||[],
     tags: m.tags||[], attachments: m.attachments||[], subsOpen: !!m.subsOpen,
+    hard: !!m.hard, waitOn: m.waitOn||'', remind: m.remind||'', returned: !!m.returned,
     owner: r.owner, ownerName: r.owner_name||'',
     created: r.created_at ? Date.parse(r.created_at) : Date.now()
   };
@@ -646,6 +848,7 @@ async function loadTasks(){
     const ids = new Set(state.columns.map(c=>c.id));
     for(const t of state.tasks){ if(t.col!=='__assigned' && !ids.has(t.col)) t.col = state.columns[0] ? state.columns[0].id : ''; }
     snapshotTasks();
+    if(resurface()) pushTasksSoon();
   }catch(e){ console.warn(e); setCloud('⚠ úkoly se nepodařilo načíst'); }
 }
 async function migrateTasksToTable(blobTasks){
@@ -763,26 +966,38 @@ function daysTo(dateStr){
   const d = new Date(dateStr+'T00:00:00'); const now = new Date(); now.setHours(0,0,0,0);
   return Math.round((d-now)/86400000);
 }
+/* Pevný termín (t.hard) se hlídá a svítí. Měkký („chci do") po uplynutí jen zešedne. */
 function dueInfo(t){
   const d = daysTo(t.due);
   if(d===null) return null;
-  if(d<0)  return {cls:'overdue', txt: `${-d} d po termínu`};
-  if(d===0) return {cls:'today', txt:'dnes'};
-  if(d===1) return {cls:'soon', txt:'zítra'};
-  if(d<=3) return {cls:'soon', txt:`za ${d} dny`};
-  const dt = new Date(t.due+'T00:00:00');
-  return {cls:'', txt: dt.getDate()+'.'+(dt.getMonth()+1)+'.'};
+  const dt = new Date(t.due+'T00:00:00'), lbl = dt.getDate()+'. '+(dt.getMonth()+1)+'.';
+  if(t.hard){
+    if(d<0)  return {cls:'hard', txt:`Pevně · ${-d} d po termínu`};
+    if(d===0) return {cls:'today', txt:'Pevně dnes'};
+    if(d===1) return {cls:'today', txt:'Pevně zítra'};
+    return {cls:'hard', txt:'Pevně '+lbl};
+  }
+  if(d<0)  return {cls:'soft past', txt:'chtěl jsem do '+lbl};
+  if(d===0) return {cls:'soft', txt:'chci dnes'};
+  if(d===1) return {cls:'soft', txt:'chci zítra'};
+  return {cls:'soft', txt:'chci do '+lbl};
 }
-function isUrgent(t){ const d = daysTo(t.due); return d!==null && d<=3 && !t.done; }
+function isUrgent(t){ const d = daysTo(t.due); return !!t.hard && d!==null && d<=3 && !t.done; }
 function visible(t){
   if(state.hideDone && t.done) return false;
   if(urgentOnly && !isUrgent(t)) return false;
-  if(activeTagFilters.size && !t.tags.some(id=>activeTagFilters.has(id))) return false;
+  if(quickOnly){ const m=taskMin(t); if(!(m>0 && m<=20)) return false; }
+  if(activeTagFilters.size){
+    // v rámci jednoho typu štítku stačí jeden (NEBO), mezi typy musí platit všechny (A)
+    const byType={};
+    for(const id of activeTagFilters){ const tg=tagById(id); if(tg) (byType[tg.type]=byType[tg.type]||[]).push(id); }
+    for(const ids of Object.values(byType)) if(!ids.some(id=>t.tags.includes(id))) return false;
+  }
   if(personFilter==='__mine'){
     const a = t.assignees||[];
     if(a.length && !(ME && a.includes(ME.name))) return false;
   } else if(personFilter){
-    if(!(t.assignees||[]).includes(personFilter)) return false;
+    if(!taskPeople(t).includes(personFilter)) return false;
   }
   if(searchQ){
     const q = searchQ.toLowerCase();
@@ -793,46 +1008,111 @@ function visible(t){
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 /* ---------------- render ---------------- */
+const ICON = (id, attrs='') => `<svg class="ico" ${attrs}><use href="#i-${id}"/></svg>`;
+let quickOnly = false;
+function colRole(c){
+  if(!c) return '';
+  if(typeof c.role==='string') return c.role;
+  const n=(c.name||'').toLowerCase();
+  if(/dnes|today/.test(n)) return 'today';
+  if(/čekám|cekam|čeká/.test(n)) return 'waiting';
+  if(/zpracovat|inbox|roztřídit/.test(n)) return 'inbox';
+  return '';
+}
+const ROLE_HINT = {today:'', waiting:'vrátí se samo', inbox:'k roztřídění'};
+function todayCol(){ return state.columns.find(c=>colRole(c)==='today'); }
+function inboxCol(){ return state.columns.find(c=>colRole(c)==='inbox') || state.columns[0]; }
+function colById(id){ return state.columns.find(c=>c.id===id); }
+function todayISO(){ return jISO(new Date()); }
+function fmtD(ds){ const d=new Date(ds+'T00:00:00'); return d.getDate()+'. '+(d.getMonth()+1)+'.'; }
+function fmtMin(m){ if(!m) return '0 h'; if(m<60) return Math.round(m)+' min'; const h=Math.floor(m/60), r=Math.round(m%60); return h+' h'+(r?' '+r+' min':''); }
+function taskMin(t){ return Math.round(taskHours(t)*60); }
+function capMin(){ return Math.round((state.capacity||7)*60); }
+function initials(n){ const p=String(n||'?').trim().split(/\s+/); const a=(p[0]||'?'); return (a[0]+(p[1]?p[1][0]:(a[1]||''))).toUpperCase(); }
+const PERSON_COLORS=['#7DD3C0','#F49AC1','#9DB4FF','#C4B5FD','#FDBA74','#86EFAC'];
+function personColor(name){
+  const tg=state.tags.find(t=>t.type==='person' && t.name===name); if(tg) return tg.color;
+  let h=0; for(const ch of String(name)) h=(h*31+ch.charCodeAt(0))>>>0; return PERSON_COLORS[h%PERSON_COLORS.length];
+}
+function taskPeople(t){
+  const s=new Set(t.assignees||[]);
+  for(const id of t.tags){ const tg=tagById(id); if(tg && tg.type==='person') s.add(tg.name); }
+  return [...s];
+}
+function isOpenOwn(t){ return !t.done && t.col!=='__assigned'; }
+
+/* úkoly z „Čekám", kterým nastal den připomenutí, se samy vrátí do sloupce Dnes */
+function resurface(){
+  const tc=todayCol(); if(!tc) return false;
+  const today=todayISO(); let changed=false;
+  for(const t of state.tasks){
+    if(t.done || t.col==='__assigned' || !t.remind || t.remind>today) continue;
+    if(colRole(colById(t.col))!=='waiting') continue;
+    t.col=tc.id; t.returned=true; t.remind=''; changed=true;
+  }
+  return changed;
+}
+
 function render(){
+  applyTheme();
   renderHeader();
   renderBoard();
-  applyTheme();
+  if(document.getElementById('focusScr').classList.contains('show')) renderFocus();
+}
+
+function navItem(html, on, onclick){
+  const b=document.createElement('button'); b.type='button'; b.className='nav'+(on?' on':''); b.innerHTML=html; b.onclick=onclick; return b;
 }
 function renderHeader(){
-  // urgent badge
-  const overdue = state.tasks.filter(t=>!t.done && daysTo(t.due)!==null && daysTo(t.due)<0).length;
-  const today   = state.tasks.filter(t=>!t.done && daysTo(t.due)===0).length;
-  const soon    = state.tasks.filter(t=>!t.done && daysTo(t.due)>0 && daysTo(t.due)<=3).length;
-  const b = document.getElementById('urgentBadge');
-  const parts=[];
-  if(overdue) parts.push('⚠ '+overdue+' po termínu');
-  if(today) parts.push(today+' dnes');
-  if(soon) parts.push(soon+' brzy');
-  b.textContent = parts.length? parts.join(' · ') : '✓ žádný spěch';
-  b.classList.toggle('hot', overdue>0 || today>0);
-  b.classList.toggle('active', urgentOnly);
+  const open = state.tasks.filter(t=>!t.done);
+  const tc = todayCol();
+  const todayN = tc ? open.filter(t=>t.col===tc.id).length : 0;
+  const urgent = state.tasks.filter(isUrgent).length;
+  const lbl = new Date().toLocaleDateString('cs-CZ',{weekday:'long', day:'numeric', month:'long'});
+  document.getElementById('todayLbl').textContent = lbl.charAt(0).toUpperCase()+lbl.slice(1);
+  document.getElementById('sumLbl').textContent = open.length+' otevřených · '+todayN+' na dnes · '+urgent+(urgent===1?' pevný termín':' pevné termíny')+' do 3 dnů';
+  document.getElementById('navBoardN').textContent = open.length;
+  document.getElementById('navFocusN').textContent = focusSet().filter(t=>!t.done).length;
 
-  // tag filter chips
-  const tf = document.getElementById('tagFilter');
-  tf.innerHTML='';
-  for(const tg of state.tags){
-    const c = document.createElement('span');
-    c.className = 'chip' + (activeTagFilters.size && !activeTagFilters.has(tg.id) ? ' off':'');
-    c.style.background = tg.color+'22'; c.style.color = tg.color; c.style.borderColor = tg.color+'55';
-    c.innerHTML = `<span class="dot" style="background:${tg.color}"></span>${esc(tg.name)}`;
-    c.onclick = ()=>{ activeTagFilters.has(tg.id) ? activeTagFilters.delete(tg.id) : activeTagFilters.add(tg.id); render(); };
-    tf.appendChild(c);
+  const b = document.getElementById('urgentBadge');
+  b.textContent = 'Pevné termíny · '+urgent;
+  b.classList.toggle('on', urgentOnly);
+
+  // projekty v postranním panelu
+  const tf = document.getElementById('tagFilter'); tf.innerHTML='';
+  for(const tg of state.tags.filter(x=>x.type==='project')){
+    const n = open.filter(t=>t.tags.includes(tg.id)).length;
+    tf.appendChild(navItem(`<span class="dot" style="background:${tg.color}"></span>${esc(tg.name)}<span class="count">${n}</span>`, activeTagFilters.has(tg.id),
+      ()=>{ activeTagFilters.has(tg.id) ? activeTagFilters.delete(tg.id) : activeTagFilters.add(tg.id); render(); closeSide(); }));
   }
+  // lidé
   const pf = document.getElementById('personFilter'); pf.innerHTML='';
-  const names = ['__mine', ...PEOPLE.map(p=>p.name).filter(n=>!ME || n!==ME.name)];
+  pf.appendChild(navItem(`<span class="av" style="background:var(--accent)">${esc(initials(ME?ME.name:'Já'))}</span>Jen moje`, personFilter==='__mine',
+    ()=>{ personFilter = personFilter==='__mine' ? '' : '__mine'; render(); closeSide(); }));
+  const names = new Set(PEOPLE.map(p=>p.name).filter(n=>!ME || n!==ME.name));
+  state.tags.filter(x=>x.type==='person').forEach(x=>names.add(x.name));
   for(const n of names){
-    const c = document.createElement('span');
-    c.className = 'chip' + (personFilter && personFilter!==n ? ' off' : '');
-    c.textContent = (n==='__mine') ? '👤 Jen moje' : '👤 '+n;
-    c.onclick = ()=>{ personFilter = (personFilter===n ? '' : n); render(); };
-    pf.appendChild(c);
+    const cnt = open.filter(t=>taskPeople(t).includes(n)).length;
+    pf.appendChild(navItem(`<span class="av" style="background:${personColor(n)}">${esc(initials(n))}</span>${esc(n)}<span class="count">${cnt}</span>`, personFilter===n,
+      ()=>{ personFilter = personFilter===n ? '' : n; render(); closeSide(); }));
   }
-  document.getElementById('hideDoneBtn').classList.toggle('active', state.hideDone);
+
+  // filtry nad nástěnkou: kontexty + rychlovky
+  const cf = document.getElementById('ctxFilter'); cf.innerHTML='';
+  const mk = (html, on, fn, extra='')=>{ const c=document.createElement('button'); c.type='button'; c.className='chip'+(on?' on':'')+extra; c.innerHTML=html; c.onclick=fn; cf.appendChild(c); };
+  const ctxTags = state.tags.filter(x=>x.type==='context');
+  const anyCtx = ctxTags.some(x=>activeTagFilters.has(x.id));
+  mk('Vše', !anyCtx && !quickOnly && !urgentOnly, ()=>{ ctxTags.forEach(x=>activeTagFilters.delete(x.id)); quickOnly=false; urgentOnly=false; render(); });
+  for(const tg of ctxTags){
+    const n = open.filter(t=>t.tags.includes(tg.id)).length;
+    mk(`<span class="dot" style="background:${tg.color}"></span>${esc(tg.name)}<span class="n">${n}</span>`, activeTagFilters.has(tg.id),
+      ()=>{ activeTagFilters.has(tg.id) ? activeTagFilters.delete(tg.id) : activeTagFilters.add(tg.id); render(); });
+  }
+  const qn = open.filter(t=>{ const m=taskMin(t); return m>0 && m<=20; }).length;
+  mk(`Rychlovky ≤ 20 min<span class="n">${qn}</span>`, quickOnly, ()=>{ quickOnly=!quickOnly; render(); });
+  document.getElementById('hideDoneBtn').classList.toggle('on', !!state.hideDone);
+  document.getElementById('navBoard').classList.toggle('on', !document.getElementById('focusScr').classList.contains('show'));
+  document.getElementById('navFocus').classList.toggle('on', document.getElementById('focusScr').classList.contains('show'));
 }
 
 function colPref(){ try{ return localStorage.getItem('ukoly-cols')||'auto'; }catch(e){ return 'auto'; } }
@@ -841,7 +1121,7 @@ function currentColCount(){
   if(p!=='auto'){ const n=parseInt(p,10); if(n>=1) return n; }
   const board=document.getElementById('board');
   const w=(board&&board.clientWidth)||window.innerWidth||1200;
-  if(w>=2100) return 5; if(w>=1600) return 4; if(w>=1050) return 3; if(w>=680) return 2; return 1;
+  if(w>=2150) return 5; if(w>=1680) return 4; if(w>=1080) return 3; if(w>=680) return 2; return 1;
 }
 function leastLane(N){
   const c=new Array(N).fill(0);
@@ -852,22 +1132,21 @@ function renderBoard(){
   const board = document.getElementById('board');
   const N = currentColCount();
   board.innerHTML='';
-  board.style.display='flex'; board.style.alignItems='flex-start'; board.style.gap='10px';
+  board.style.display='flex'; board.style.alignItems='flex-start'; board.style.gap='14px';
   const lanes=[];
   for(let i=0;i<N;i++){
     const l=document.createElement('div'); l.className='lane'; l.dataset.lane=i;
-    l.style.cssText='flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:10px;';
+    l.style.cssText='flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:14px;';
     board.appendChild(l); lanes.push(l);
   }
   const boardCols = state.columns.slice();
-  if(state.tasks.some(t=>t.col==='__assigned')) boardCols.unshift({id:'__assigned', name:'📥 Přiřazené mně', lane:0});
+  if(state.tasks.some(t=>t.col==='__assigned')) boardCols.unshift({id:'__assigned', name:'Přiřazené mně', lane:0});
   for(const col of boardCols){
     let ln=(typeof col.lane==='number')?col.lane:0; if(ln<0)ln=0; if(ln>=N)ln=N-1;
-    const card=renderCol(col); card.style.marginBottom='0';
-    lanes[ln].appendChild(card);
+    lanes[ln].appendChild(renderCol(col));
   }
-  const add=document.createElement('button'); add.id='addColBtn'; add.textContent='+ Přidat widget'; add.style.marginBottom='0';
-  add.onclick=()=>{ const name=prompt('Název nového widgetu (sloupce):'); if(!name) return; state.columns.push({id:uid(), name, lane:leastLane(N)}); save(); render(); };
+  const add=document.createElement('button'); add.id='addColBtn'; add.type='button'; add.textContent='+ Přidat sloupec';
+  add.onclick=()=>{ const name=prompt('Název nového sloupce:'); if(!name) return; state.columns.push({id:uid(), name, lane:leastLane(N)}); save(); render(); };
   lanes[leastLane(N)].appendChild(add);
   setupLaneDrop(lanes);
 }
@@ -890,8 +1169,83 @@ function setupLaneDrop(lanes){
   });
 }
 
+/* řazení uvnitř sloupce: priorita → pevný termín → měkký termín → nejkratší */
+function taskRank(a,b){
+  if(a.done!==b.done) return a.done ? 1 : -1;
+  if(!!a.returned!==!!b.returned) return a.returned ? -1 : 1;
+  const pa=a.priority||0, pb=b.priority||0; if(pa!==pb) return pb-pa;
+  const ha=a.hard&&a.due ? a.due : '9999', hb=b.hard&&b.due ? b.due : '9999'; if(ha!==hb) return ha.localeCompare(hb);
+  const sa=a.due||'9999', sb2=b.due||'9999'; if(sa!==sb2) return sa.localeCompare(sb2);
+  const ma=taskMin(a)||9999, mb=taskMin(b)||9999; return ma-mb;
+}
+
+/* ---------- menu sloupce ---------- */
+function closePop(){ document.querySelectorAll('.popmenu').forEach(x=>x.remove()); }
+document.addEventListener('mousedown', e=>{ if(!e.target.closest('.popmenu') && !e.target.closest('.col-menu')) closePop(); });
+function openColMenu(col, anchor){
+  closePop();
+  const m=document.createElement('div'); m.className='popmenu';
+  const role=colRole(col);
+  const item=(txt, fn, cls='')=>{ const b=document.createElement('button'); b.type='button'; b.className=cls; b.innerHTML=txt; b.onclick=()=>{ closePop(); fn(); }; m.appendChild(b); };
+  item('Přejmenovat', ()=>{ const n=prompt('Nový název sloupce:', col.name); if(n&&n.trim()){ col.name=n.trim(); save(); render(); } });
+  m.appendChild(document.createElement('hr'));
+  item((role==='today'?'✓ ':'')+'Role: Dnes <span style="color:var(--muted)">(kapacita, fokus)</span>', ()=>setRole(col,'today'));
+  item((role==='waiting'?'✓ ':'')+'Role: Čekám <span style="color:var(--muted)">(připomenutí)</span>', ()=>setRole(col,'waiting'));
+  item((role==='inbox'?'✓ ':'')+'Role: Inbox <span style="color:var(--muted)">(nové úkoly)</span>', ()=>setRole(col,'inbox'));
+  item((role===''?'✓ ':'')+'Bez role', ()=>setRole(col,''));
+  m.appendChild(document.createElement('hr'));
+  item('Převést na štítek (kontext)…', ()=>convertColToTag(col));
+  item('Smazat sloupec', ()=>deleteCol(col), 'danger');
+  document.body.appendChild(m);
+  const r=anchor.getBoundingClientRect();
+  m.style.top=Math.min(r.bottom+4, window.innerHeight-m.offsetHeight-8)+'px';
+  m.style.left=Math.max(8, Math.min(r.right-m.offsetWidth, window.innerWidth-m.offsetWidth-8))+'px';
+}
+function setRole(col, role){
+  if(role) state.columns.forEach(c=>{ if(c!==col && colRole(c)===role) c.role=''; });
+  col.role=role; save(); render();
+}
+function deleteCol(col){
+  const tasksIn = state.tasks.filter(t=>t.col===col.id);
+  if(tasksIn.length){
+    if(!confirm(`Sloupec „${col.name}" obsahuje ${tasksIn.length} úkolů. Přesunout je do prvního sloupce a smazat?`)) return;
+    const first = state.columns.find(c=>c.id!==col.id); if(!first) return;
+    tasksIn.forEach(t=>t.col=first.id);
+  } else if(!confirm(`Smazat sloupec „${col.name}"?`)) return;
+  state.columns = state.columns.filter(c=>c.id!==col.id); save(); render();
+}
+function convertColToTag(col){
+  const tasksIn = state.tasks.filter(t=>t.col===col.id);
+  const targets = state.columns.filter(c=>c.id!==col.id);
+  if(!targets.length){ alert('Nejdřív potřebuješ aspoň jeden další sloupec, kam úkoly přesunout.'); return; }
+  openTaskId=null;
+  modalBox.className='modal center';
+  modalBox.innerHTML=`<div class="mpad">
+    <h2>Převést „${esc(col.name)}" na štítek</h2>
+    <p style="font-size:13.5px;color:var(--tx2);line-height:1.5">Vznikne štítek <b>${esc(col.name)}</b> (kontext). Dostane ho všech ${tasksIn.length} úkolů ze sloupce a ty se přesunou do sloupce, který vybereš. Pak půjdou najít filtrem nad nástěnkou. Sloupec zmizí.</p>
+    <small class="sect">PŘESUNOUT ÚKOLY DO</small>
+    <div class="seg" id="cv_targets" style="margin-top:6px"></div>
+    <div style="display:flex;gap:8px;margin-top:18px"><button class="btn primary" id="cv_ok" type="button">Převést</button><button class="btn" id="cv_no" type="button">Zrušit</button></div>
+  </div>`;
+  let target = (inboxCol() && inboxCol().id!==col.id) ? inboxCol().id : targets[0].id;
+  const draw=()=>{ const box=document.getElementById('cv_targets'); box.innerHTML='';
+    for(const c of targets){ const b=document.createElement('button'); b.type='button'; b.className='sbtn'+(c.id===target?' on':''); b.textContent=c.name; b.onclick=()=>{ target=c.id; draw(); }; box.appendChild(b); } };
+  draw();
+  document.getElementById('cv_no').onclick=closeModal;
+  document.getElementById('cv_ok').onclick=()=>{
+    let tg = state.tags.find(x=>x.type==='context' && x.name.toLowerCase()===col.name.toLowerCase());
+    if(!tg){ tg={id:uid(), name:col.name, type:'context', color:PALETTE[state.tags.length % PALETTE.length]}; state.tags.push(tg); }
+    for(const t of tasksIn){ if(!t.tags.includes(tg.id)) t.tags.push(tg.id); t.col=target; }
+    state.columns = state.columns.filter(c=>c.id!==col.id);
+    save(); closeModal(); render();
+  };
+  overlay.classList.add('show');
+}
+
 function renderCol(col){
-  const el = document.createElement('div'); el.className='col'; el.dataset.col=col.id;
+  const role = colRole(col);
+  const el = document.createElement('section'); el.className='col'+(role==='today'?' today':''); el.dataset.col=col.id;
+  el.setAttribute('aria-label', col.name);
   const isVirtual = (col.id==='__assigned');
 
   const head = document.createElement('div'); head.className='col-head';
@@ -906,21 +1260,19 @@ function renderCol(col){
     inp.onblur=done; inp.onkeydown=e=>{ if(e.key==='Enter') inp.blur(); if(e.key==='Escape'){inp.onblur=null; render();} };
   };
   const tasksIn = state.tasks.filter(t=>t.col===col.id);
-  const count = document.createElement('span'); count.className='col-count'; count.textContent=tasksIn.length;
-  const x = document.createElement('button'); x.className='col-x'; x.textContent='✕'; x.title='Smazat sloupec';
-  x.onclick = ()=>{
-    if(tasksIn.length){
-      if(!confirm(`Sloupec "${col.name}" obsahuje ${tasksIn.length} úkolů. Přesunout je do prvního sloupce a smazat?`)) return;
-      const first = state.columns.find(c=>c.id!==col.id); if(!first) return;
-      tasksIn.forEach(t=>t.col=first.id);
-    } else if(!confirm(`Smazat sloupec "${col.name}"?`)) return;
-    state.columns = state.columns.filter(c=>c.id!==col.id); save(); render();
-  };
-  if(isVirtual) head.append(title, count); else head.append(title, count, x);
+  const openIn = tasksIn.filter(t=>!t.done);
+  const count = document.createElement('span'); count.className='col-count'; count.textContent=openIn.length;
+  const hint = document.createElement('span'); hint.className='col-hint';
+  hint.textContent = role==='today' ? ('max. '+(state.capacity||7)+' h') : (ROLE_HINT[role]||'');
+  head.append(title, count, hint);
+  if(!isVirtual){
+    const mb=document.createElement('button'); mb.type='button'; mb.className='col-menu'; mb.setAttribute('aria-label','Možnosti sloupce'); mb.innerHTML=ICON('dots');
+    if(!hint.textContent) mb.style.marginLeft='auto';
+    mb.onclick=e=>{ e.stopPropagation(); openColMenu(col, mb); };
+    head.appendChild(mb);
+  }
 
-  /* přetahování widgetu (sloupce) za hlavičku – umístění řeší lane */
   head.draggable = !isVirtual;
-  head.title = 'Tažením přesuneš widget kamkoli (do sloupce i pod jiný)';
   head.ondragstart = e=>{
     e.stopPropagation();
     e.dataTransfer.setData('text/plain', 'col:'+col.id);
@@ -928,113 +1280,118 @@ function renderCol(col){
     setTimeout(()=>el.classList.add('col-dragging'), 0);
   };
   head.ondragend = ()=>{ draggingColId = null; el.classList.remove('col-dragging'); document.querySelectorAll('.lane-over').forEach(c=>c.classList.remove('lane-over')); };
+  el.appendChild(head);
 
-  // ---- rozbalovací rychlé zakládání ----
+  if(role==='today'){
+    const sum = openIn.reduce((a,t)=>a+taskMin(t),0), cap=capMin();
+    const pct = Math.min(100, Math.round(sum/cap*100));
+    const capEl=document.createElement('div'); capEl.className='cap';
+    capEl.title='Součet časové náročnosti otevřených úkolů. Kliknutím změníš denní limit.';
+    capEl.style.cursor='pointer';
+    capEl.innerHTML=`<div class="row"><span>Kapacita dne</span><span class="mono">${fmtMin(sum)} / ${state.capacity||7} h</span></div><span class="bar"><i style="width:${pct}%;background:${sum>cap?'var(--danger)':'var(--accent)'}"></i></span>`;
+    capEl.onclick=()=>{ const v=prompt('Kolik hodin denně chceš plánovat?', state.capacity||7); const n=parseFloat(String(v||'').replace(',','.')); if(n>0){ state.capacity=n; save(); render(); } };
+    el.appendChild(capEl);
+  }
+
+  if(!isVirtual) el.appendChild(buildQuickAdd(col));
+
+  const list = document.createElement('div'); list.className='tasklist'; list.dataset.col=col.id;
+  const shown = tasksIn.filter(visible).sort(taskRank);
+  for(const t of shown) list.appendChild(renderTask(t));
+  if(!shown.length){ const e=document.createElement('div'); e.className='empty'; e.textContent = tasksIn.length ? 'Nic neodpovídá filtru' : 'Prázdno'; list.appendChild(e); }
+  setupDrop(list, col.id);
+  el.appendChild(list);
+  return el;
+}
+
+/* ---------- rychlé zakládání (rozbalovací) ---------- */
+function buildQuickAdd(col){
   const addWrap = document.createElement('div'); addWrap.className='addwrap';
-  addWrap.style.cssText = 'margin:2px 8px 6px;';
-  const qa = document.createElement('input'); qa.className='quickadd'; qa.placeholder='+ nový úkol';
-  qa.style.margin='0'; qa.style.width='100%';
+  const qa = document.createElement('input'); qa.className='quickadd'; qa.placeholder='+ Přidat úkol'; qa.setAttribute('aria-label','Přidat úkol do '+col.name);
+  const panel = document.createElement('div'); panel.className='qa-panel';
 
-  const panel = document.createElement('div');
-  panel.style.cssText = 'display:none; border:1px solid var(--accent); border-top:none; border-radius:0 0 6px 6px; background:#fff; padding:8px;';
-
-  // priorita
-  let naPrio = 0;
-  const prioWrap = document.createElement('div'); prioWrap.style.cssText='display:flex; gap:4px; align-items:center; margin-bottom:6px;';
-  const prioLbl = document.createElement('span'); prioLbl.textContent='Priorita:'; prioLbl.style.cssText='font-size:11px; color:var(--muted);'; prioWrap.appendChild(prioLbl);
+  let naPrio = 0, naHard = false;
+  const prioWrap = document.createElement('div'); prioWrap.className='seg';
   const prioBtns=[];
-  [['—',0],['!',1],['!!',2],['!!!',3]].forEach(([lab,val])=>{
-    const b=document.createElement('button'); b.type='button'; b.textContent=lab;
-    b.style.cssText='padding:1px 8px; border:1px solid var(--border); border-radius:5px; background:var(--panel); cursor:pointer; font-size:12px; font-weight:800; color:'+(val>=3?'var(--danger)':val===2?'var(--warn)':val===1?'var(--soon)':'var(--muted)')+';';
-    b.onmousedown=(ev)=>{ ev.preventDefault(); naPrio=val; prioBtns.forEach((x,i)=>x.style.background=(i===val)?'#e0e7ff':'var(--panel)'); };
+  [['Bez priority',0],['!',1],['!!',2],['!!!',3]].forEach(([lab,val])=>{
+    const b=document.createElement('button'); b.type='button'; b.className='sbtn'+(val?' pri':''); b.textContent=lab;
+    b.onmousedown=ev=>{ ev.preventDefault(); setPrio(val); qaSync(); };
     prioBtns.push(b); prioWrap.appendChild(b);
   });
-  prioBtns[0].style.background='#e0e7ff';
+  const dueRow=document.createElement('div'); dueRow.className='seg';
+  const dueIn=document.createElement('input'); dueIn.type='date'; dueIn.className='fld'; dueIn.setAttribute('aria-label','Termín');
+  const hardBtn=document.createElement('button'); hardBtn.type='button'; hardBtn.className='sbtn hard'; hardBtn.textContent='Pevný termín';
+  hardBtn.onmousedown=ev=>{ ev.preventDefault(); naHard=!naHard; hardBtn.classList.toggle('on', naHard); qaSync(); };
+  dueRow.append(dueIn, hardBtn);
 
-  // termín
-  const dueIn=document.createElement('input'); dueIn.type='date';
-  dueIn.style.cssText='width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:6px; font-size:12px; margin-bottom:6px;';
-
-  // projekty + lidé
   const picked=new Set();
-  const chipsBox=document.createElement('div'); chipsBox.style.cssText='display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;';
+  const chipsBox=document.createElement('div'); chipsBox.className='seg';
   const drawChips=()=>{
     chipsBox.innerHTML='';
     for(const tg of state.tags){
-      const c=document.createElement('span'); c.className='chip'+(picked.has(tg.id)?'':' off');
-      c.style.background=tg.color+'22'; c.style.color=tg.color; c.style.borderColor=tg.color+'55';
-      c.innerHTML=`<span class="dot" style="background:${tg.color}"></span>${esc(tg.name)}`;
-      c.onmousedown=(ev)=>{ ev.preventDefault(); if(picked.has(tg.id)){ picked.delete(tg.id); c.classList.add('off'); } else { picked.add(tg.id); c.classList.remove('off'); } };
+      const c=document.createElement('button'); c.type='button'; c.className='sbtn pill'+(picked.has(tg.id)?' on':'');
+      c.innerHTML=`<i style="background:${tg.color}"></i>${esc(tg.name)}`;
+      c.onmousedown=ev=>{ ev.preventDefault(); picked.has(tg.id)?picked.delete(tg.id):picked.add(tg.id); drawChips(); qaSync(); };
       chipsBox.appendChild(c);
     }
   };
   drawChips();
 
-  // přiřadit lidem
   const assigned=new Set();
-  const assignBox=document.createElement('div'); assignBox.style.cssText='display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-bottom:6px;';
+  const assignBox=document.createElement('div'); assignBox.className='seg';
   const drawAssign=()=>{
     assignBox.innerHTML='';
     const others=PEOPLE.filter(p=>!ME || p.name!==ME.name);
-    if(!others.length) return;
-    const lbl=document.createElement('span'); lbl.textContent='Přiřadit:'; lbl.style.cssText='font-size:11px; color:var(--muted);'; assignBox.appendChild(lbl);
+    if(!others.length){ assignBox.style.display='none'; return; }
+    assignBox.style.display='';
+    const lbl=document.createElement('span'); lbl.textContent='Přiřadit:'; lbl.style.cssText='font-size:12px;color:var(--muted)'; assignBox.appendChild(lbl);
     for(const p of others){
-      const c=document.createElement('span'); c.className='chip'+(assigned.has(p.name)?'':' off');
-      c.textContent='👤 '+p.name; c.style.borderColor='var(--border)';
-      c.title='Přiřadit – pošle e-mail';
-      c.onmousedown=(ev)=>{ ev.preventDefault(); assigned.has(p.name)?assigned.delete(p.name):assigned.add(p.name); drawAssign(); qaSync(); };
+      const c=document.createElement('button'); c.type='button'; c.className='sbtn pill'+(assigned.has(p.name)?' on':'');
+      c.innerHTML=`<i style="background:${personColor(p.name)}"></i>${esc(p.name)}`; c.title='Přiřadit – pošle e-mail';
+      c.onmousedown=ev=>{ ev.preventDefault(); assigned.has(p.name)?assigned.delete(p.name):assigned.add(p.name); drawAssign(); qaSync(); };
       assignBox.appendChild(c);
     }
   };
 
-  // poznámka
   const noteIn=document.createElement('textarea'); noteIn.placeholder='Poznámka (nepovinné)…'; noteIn.rows=2;
-  noteIn.style.cssText='width:100%; padding:5px 6px; border:1px solid var(--border); border-radius:6px; font-size:12px; font-family:inherit; resize:vertical; margin-bottom:6px;';
 
-  // tlačítka
-  const btnRow=document.createElement('div'); btnRow.style.cssText='display:flex; gap:6px; align-items:center;';
-  const okBtn=document.createElement('button'); okBtn.className='qa-ok'; okBtn.textContent='Založit';
-  okBtn.style.cssText='padding:5px 16px; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;';
-  const draftBtn=document.createElement('button'); draftBtn.textContent='Uložit koncept';
-  draftBtn.style.cssText='padding:5px 10px; border:1px solid var(--border); background:var(--panel); color:var(--text); border-radius:6px; cursor:pointer; font-size:12px;';
-  const cancelBtn=document.createElement('button'); cancelBtn.textContent='Zahodit';
-  cancelBtn.style.cssText='padding:5px 8px; border:none; background:none; color:var(--danger); cursor:pointer; font-size:12px; margin-left:auto;';
+  const btnRow=document.createElement('div'); btnRow.className='seg';
+  const okBtn=document.createElement('button'); okBtn.type='button'; okBtn.className='btn sm primary'; okBtn.textContent='Založit';
+  const draftBtn=document.createElement('button'); draftBtn.type='button'; draftBtn.className='btn sm'; draftBtn.textContent='Uložit koncept';
+  const cancelBtn=document.createElement('button'); cancelBtn.type='button'; cancelBtn.className='btn sm danger'; cancelBtn.textContent='Zahodit'; cancelBtn.style.marginLeft='auto';
   btnRow.append(okBtn, draftBtn, cancelBtn);
-  panel.append(prioWrap, dueIn, chipsBox, assignBox, noteIn, btnRow);
+  panel.append(prioWrap, dueRow, chipsBox, assignBox, noteIn, btnRow);
 
   const draftTag=document.createElement('div');
-  draftTag.textContent='📝 rozepsaný koncept – klikni pro pokračování';
-  draftTag.style.cssText='display:none; font-size:10px; color:var(--warn); padding:2px 2px 0; cursor:pointer;';
+  draftTag.textContent='Rozepsaný koncept – klikni pro pokračování';
+  draftTag.style.cssText='display:none; font-size:11.5px; color:var(--accent-tx); padding:4px 2px 0; cursor:pointer;';
   draftTag.onclick=()=>qa.focus();
 
-  // stav formuláře přežije překreslení (QA_LIVE) i zavření prohlížeče (koncept v localStorage)
-  const setPrio=v=>{ naPrio=v; prioBtns.forEach((x,i)=>x.style.background=(i===v)?'#e0e7ff':'var(--panel)'); };
-  const hasContent=()=>!!(qa.value.trim() || noteIn.value.trim() || dueIn.value || picked.size || assigned.size || naPrio);
-  const snap=()=>({title:qa.value, prio:naPrio, due:dueIn.value, tags:[...picked], assignees:[...assigned], note:noteIn.value, open:expanded});
+  function setPrio(v){ naPrio=v; prioBtns.forEach((x,i)=>x.classList.toggle('on', i===v)); }
+  setPrio(0);
+  const hasContent=()=>!!(qa.value.trim() || noteIn.value.trim() || dueIn.value || picked.size || assigned.size || naPrio || naHard);
+  const snap=()=>({title:qa.value, prio:naPrio, hard:naHard, due:dueIn.value, tags:[...picked], assignees:[...assigned], note:noteIn.value, open:expanded});
   function qaSync(){ QA_LIVE[col.id]=snap(); }
   const showDraftTag=()=>{ draftTag.style.display = (!expanded && qaDraftLoad(col.id)) ? 'block' : 'none'; };
   const fill=st=>{
-    qa.value=st.title||''; setPrio(st.prio||0); dueIn.value=st.due||''; noteIn.value=st.note||'';
+    qa.value=st.title||''; setPrio(st.prio||0); naHard=!!st.hard; hardBtn.classList.toggle('on', naHard); dueIn.value=st.due||''; noteIn.value=st.note||'';
     picked.clear(); (st.tags||[]).forEach(id=>picked.add(id)); drawChips();
     assigned.clear(); (st.assignees||[]).forEach(n=>assigned.add(n)); drawAssign();
   };
   const reset=()=>{ fill({}); delete QA_LIVE[col.id]; qaDraftClear(col.id); showDraftTag(); };
 
   let expanded=false;
-  // klik mimo zavře panel jen když je prázdný – rozepsaný úkol se musí založit, uložit jako koncept nebo zahodit
   const away=e=>{ if(!addWrap.contains(e.target) && !hasContent()) collapse(); };
-  function expand(){ if(expanded) return; expanded=true; panel.style.display='block'; qa.style.borderRadius='6px 6px 0 0'; document.addEventListener('mousedown', away); showDraftTag(); qaSync(); }
+  function expand(){ if(expanded) return; expanded=true; panel.style.display='flex'; qa.style.borderRadius='9px 9px 0 0'; document.addEventListener('mousedown', away); showDraftTag(); qaSync(); }
   function collapse(){ if(!expanded) return; expanded=false; panel.style.display='none'; qa.style.borderRadius=''; document.removeEventListener('mousedown', away); showDraftTag(); if(QA_LIVE[col.id]) QA_LIVE[col.id].open=false; if(!hasContent()) delete QA_LIVE[col.id]; }
   const submitNew=()=>{
     const v=qa.value.trim(); if(!v){ qa.focus(); return; }
-    state.tasks.push({id:uid(), title:v, col:col.id, tags:[...picked], due:dueIn.value||'', note:noteIn.value.trim(), done:false, attachments:[], priority:naPrio, assignees:[...assigned], created:Date.now()});
+    state.tasks.push({id:uid(), title:v, col:col.id, tags:[...picked], due:dueIn.value||'', hard:!!(naHard && dueIn.value), note:noteIn.value.trim(), done:false, attachments:[], priority:naPrio, assignees:[...assigned], created:Date.now()});
     collapse(); reset(); save(); render();
   };
   qa.onfocus=expand;
   qa.oninput=qaSync; dueIn.onchange=qaSync; noteIn.oninput=qaSync;
-  prioBtns.forEach(b=>b.addEventListener('mousedown', ()=>setTimeout(qaSync)));
-  chipsBox.addEventListener('mousedown', ()=>setTimeout(qaSync));
-  qa.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); submitNew(); } if(e.key==='Escape' && !hasContent()) collapse(); };
+  qa.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); submitNew(); } if(e.key==='Escape' && !hasContent()){ collapse(); qa.blur(); } };
   okBtn.onmousedown=e=>{ e.preventDefault(); submitNew(); };
   draftBtn.onmousedown=e=>{ e.preventDefault(); if(!hasContent()){ collapse(); return; } qaDraftSave(col.id, snap()); collapse(); qa.blur(); };
   cancelBtn.onmousedown=e=>{ e.preventDefault(); if(hasContent() && !confirm('Zahodit rozepsaný úkol?')) return; reset(); collapse(); qa.blur(); };
@@ -1044,80 +1401,165 @@ function renderCol(col){
   const st0 = QA_LIVE[col.id] || qaDraftLoad(col.id);
   if(st0){ fill(st0); if(st0.open){ expand(); } }
   showDraftTag();
-
-  const list = document.createElement('div'); list.className='tasklist'; list.dataset.col=col.id;
-  const shown = tasksIn.filter(visible).sort((a,b)=> (a.done-b.done) || ((a.due||'9999-99-99').localeCompare(b.due||'9999-99-99')) || ((b.priority||0)-(a.priority||0)) );
-  for(const t of shown){ list.appendChild(renderTask(t)); const sl=renderSubs(t); if(sl) list.appendChild(sl); }
-  setupDrop(list, col.id);
-
-  if(isVirtual) el.append(head, list); else el.append(head, addWrap, list);
-  return el;
+  return addWrap;
 }
 
+/* ---------- karta úkolu ---------- */
 function renderTask(t){
-  const row = document.createElement('div'); row.className='task'+(t.done?' done':''); row.draggable=true; row.dataset.id=t.id;
+  const row = document.createElement('div');
+  row.className='task'+(t.done?' done':'')+(t.returned?' returned':''); row.draggable=true; row.dataset.id=t.id; row.tabIndex=0;
+  row.setAttribute('role','button'); row.setAttribute('aria-label', t.title);
 
-  const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=t.done;
-  cb.onclick = e=>{ e.stopPropagation(); t.done=cb.checked; t.doneAt = cb.checked ? Date.now() : null; save(); render(); };
+  const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=t.done; cb.setAttribute('aria-label','Hotovo');
+  cb.onclick = e=>{ e.stopPropagation(); t.done=cb.checked; t.doneAt = cb.checked ? Date.now() : null; if(cb.checked) t.returned=false; save(); render(); };
 
-  const ttl = document.createElement('span'); ttl.className='ttl'; ttl.textContent=t.title; ttl.title=t.title;
-  ttl.onclick = ()=>openTask(t.id);
+  const body=document.createElement('div'); body.className='tbody';
+  const top=document.createElement('div'); top.className='trow';
+  const ttl=document.createElement('span'); ttl.className='ttl'; ttl.textContent=t.title; ttl.title=t.title;
+  top.appendChild(ttl);
+  if(t.priority){ const p=document.createElement('span'); p.className='prio'; p.textContent='!'.repeat(t.priority); p.title='Priorita '+t.priority; top.appendChild(p); }
+  body.appendChild(top);
 
-  const mini = document.createElement('span'); mini.className='mini';
-  for(const id of t.tags){
-    const tg = tagById(id); if(!tg) continue;
-    const c = document.createElement('span'); c.className='pchip';
-    c.style.background=tg.color+'22'; c.style.color=tg.color; c.textContent=tg.name;
-    mini.appendChild(c);
+  if(t.returned){
+    const w=document.createElement('span'); w.className='wait hot';
+    w.innerHTML='Vrátilo se z Čekám'+(t.waitOn?' · čekal jsi na <b>'+esc(t.waitOn)+'</b>':'');
+    body.appendChild(w);
+  } else if(t.waitOn || t.remind){
+    const hot = t.remind && t.remind<=todayISO();
+    const w=document.createElement('span'); w.className='wait'+(hot?' hot':'');
+    w.innerHTML=(t.waitOn?'Čeká na <b>'+esc(t.waitOn)+'</b>':'Čeká')+(t.remind?' · připomenout '+(hot?'<b style="color:var(--accent-tx)">dnes</b>':fmtD(t.remind)):'');
+    body.appendChild(w);
   }
-  if(ME && t.owner && t.owner!==ME.id){ const c=document.createElement('span'); c.className='pchip'; c.style.background='#94a3b833'; c.style.color='var(--muted)'; c.textContent='od '+(t.ownerName||'?'); mini.appendChild(c); }
-  if(ME && t.owner===ME.id && t.assignees && t.assignees.length){ const c=document.createElement('span'); c.className='pchip'; c.style.background='var(--accent)22'; c.style.color='var(--accent)'; c.textContent='→ '+t.assignees.join(', '); mini.appendChild(c); }
-  const di = dueInfo(t);
-  if(di){ const d=document.createElement('span'); d.className='due '+di.cls; d.textContent=di.txt; mini.appendChild(d); }
-  if(t.note || (t.attachments&&t.attachments.length)){
-    const ex=document.createElement('span'); ex.className='hasextra';
-    ex.textContent=(t.note?'📝':'')+(t.attachments.length?'📎':''); mini.appendChild(ex);
-  }
-  if(COMMENT_COUNT[t.id]){
-    const cm=document.createElement('span'); cm.className='hasextra'; cm.textContent='💬'+COMMENT_COUNT[t.id]; cm.title='Počet komentářů'; mini.appendChild(cm);
-  }
+
   if(t.subs && t.subs.length){
     const done=t.subs.filter(x=>x.done).length;
-    const stog=document.createElement('span'); stog.className='subtog';
-    stog.textContent=(t.subsOpen?'▾ ':'▸ ')+done+'/'+t.subs.length;
-    stog.title='Podúkoly – klikni pro rozbalení/sbalení';
-    stog.onclick=(e)=>{ e.stopPropagation(); t.subsOpen=!t.subsOpen; save(); render(); };
-    mini.appendChild(stog);
+    const sp=document.createElement('div'); sp.className='subprog'; sp.title='Podúkoly – klikni pro rozbalení';
+    sp.innerHTML=`<span class="bar"><i style="width:${Math.round(done/t.subs.length*100)}%;background:var(--ok)"></i></span><span class="mono">${done}/${t.subs.length}</span><span>${t.subsOpen?'▾':'▸'}</span>`;
+    sp.onclick=e=>{ e.stopPropagation(); t.subsOpen=!t.subsOpen; save(); render(); };
+    body.appendChild(sp);
+    if(t.subsOpen){
+      const sl=document.createElement('div'); sl.className='sublist';
+      for(const su of t.subs){
+        const l=document.createElement('label'); l.onclick=e=>e.stopPropagation();
+        const c=document.createElement('input'); c.type='checkbox'; c.checked=!!su.done;
+        c.onchange=()=>{ su.done=c.checked; save(); render(); };
+        const s=document.createElement('span'); s.textContent=su.title; if(su.done) s.className='d';
+        l.append(c,s); sl.appendChild(l);
+      }
+      body.appendChild(sl);
+    }
   }
-  if(t.priority){
-    const col = t.priority>=3?'var(--danger)':t.priority===2?'var(--warn)':'var(--soon)';
-    const pm=document.createElement('span'); pm.textContent='!'.repeat(t.priority); pm.title='Priorita '+t.priority;
-    pm.style.cssText='font-weight:800; letter-spacing:-1px; flex-shrink:0; color:'+col+';';
-    row.style.borderLeft='3px solid '+col;
-    row.append(cb, pm, ttl, mini);
-  } else {
-    row.append(cb, ttl, mini);
+
+  const meta=document.createElement('div'); meta.className='meta';
+  let est='';
+  for(const id of t.tags){
+    const tg=tagById(id); if(!tg) continue;
+    if(tg.type==='project') meta.insertAdjacentHTML('beforeend', `<span class="pj"><i style="background:${tg.color}"></i>${esc(tg.name)}</span>`);
+    else if(tg.type==='time') est=tg.name;
+    else if(tg.type==='context') meta.insertAdjacentHTML('beforeend', `<span class="tag ctx">${esc(tg.name)}</span>`);
   }
+  if(est) meta.insertAdjacentHTML('beforeend', `<span class="mono">${esc(est)}</span>`);
+  const di = dueInfo(t);
+  if(di) meta.insertAdjacentHTML('beforeend', di.cls.startsWith('soft') ? `<span class="${di.cls}">${esc(di.txt)}</span>` : `<span class="tag ${di.cls}">${esc(di.txt)}</span>`);
+  if(ME && t.owner && t.owner!==ME.id) meta.insertAdjacentHTML('beforeend', `<span class="tag from">od ${esc(t.ownerName||'?')}</span>`);
+  const icons=[];
+  if(t.note) icons.push(ICON('text','style="width:13px;height:13px" aria-label="Má poznámku"'));
+  if(t.attachments && t.attachments.length) icons.push(ICON('clip','style="width:13px;height:13px" aria-label="Má přílohu"'));
+  if(COMMENT_COUNT[t.id]) icons.push(ICON('msg','style="width:13px;height:13px"')+'<span class="mono">'+COMMENT_COUNT[t.id]+'</span>');
+  if(icons.length) meta.insertAdjacentHTML('beforeend', `<span style="display:inline-flex;align-items:center;gap:5px">${icons.join('')}</span>`);
+  const ppl = taskPeople(t);
+  if(ppl.length) meta.insertAdjacentHTML('beforeend', `<span class="avs">${ppl.map(n=>`<span class="av" title="${esc(n)}" style="background:${personColor(n)}">${esc(initials(n))}</span>`).join('')}</span>`);
+  if(meta.childNodes.length) body.appendChild(meta);
+
+  row.append(cb, body);
+  row.onclick = e=>{ if(e.target.closest('input,label,.subprog')) return; openTask(t.id); };
+  row.onkeydown = e=>{ if(e.key==='Enter' && e.target===row){ e.preventDefault(); openTask(t.id); } };
   row.ondragstart = e=>{ e.dataTransfer.setData('text/plain', t.id); row.classList.add('dragging'); };
   row.ondragend = ()=>row.classList.remove('dragging');
   return row;
 }
 
-function renderSubs(t){
-  if(!(t.subs && t.subs.length && t.subsOpen)) return null;
-  const box=document.createElement('div'); box.className='sublist';
-  box.style.cssText='margin:-1px 0 2px 22px; display:flex; flex-direction:column; gap:2px;';
-  for(const su of t.subs){
-    const r=document.createElement('div');
-    r.style.cssText='display:flex; align-items:center; gap:6px; font-size:12px; padding:2px 6px; border:1px solid var(--border); border-radius:5px; background:var(--panel);';
-    const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!su.done;
-    cb.onclick=(e)=>{ e.stopPropagation(); su.done=cb.checked; save(); render(); };
-    const tx=document.createElement('span'); tx.textContent=su.title; tx.style.flex='1';
-    if(su.done){ tx.style.textDecoration='line-through'; tx.style.color='var(--muted)'; }
-    r.append(cb,tx); box.appendChild(r);
-  }
-  return box;
+/* ---------- pohled Dnes – fokus ---------- */
+function hasCtx(t, re){ return t.tags.some(id=>{ const tg=tagById(id); return tg && tg.type==='context' && re.test(tg.name); }); }
+function focusSet(){
+  const tc=todayCol(), today=todayISO();
+  return state.tasks.filter(t=>{
+    if(t.done && !(t.doneAt && jISO(new Date(t.doneAt))===today)) return false;
+    if(tc && t.col===tc.id) return true;
+    if(t.returned) return true;
+    if(t.hard && t.due && t.due<=today) return true;
+    return false;
+  });
 }
+function renderFocus(){
+  const box=document.getElementById('focusBody');
+  const today=todayISO();
+  const set=focusSet().sort(taskRank);
+  const used=new Set();
+  const take=fn=>{ const r=set.filter(t=>!used.has(t.id) && fn(t)); r.forEach(t=>used.add(t.id)); return r; };
+  const hard = take(t=>t.hard && t.due && t.due<=today);
+  const calls = take(t=>hasCtx(t,/volat|telefon/i));
+  const quick = take(t=>{ const m=taskMin(t); return m>0 && m<=20; });
+  const main = take(()=>true);
+  const openSet=set.filter(t=>!t.done);
+  const sum=openSet.reduce((a,t)=>a+taskMin(t),0), cap=capMin();
+  const doneN=set.filter(t=>t.done).length;
+
+  const row=t=>{
+    const pj=t.tags.map(tagById).filter(x=>x&&x.type==='project')[0];
+    const di=dueInfo(t);
+    const sub=t.subs&&t.subs.length ? t.subs.filter(s=>s.done).length+' / '+t.subs.length+' podúkolů' : '';
+    const next=t.subs&&t.subs.find(s=>!s.done);
+    const small=[t.returned?'vrátilo se z Čekám':'', next?'Další krok: '+next.title:'', sub].filter(Boolean).join(' · ');
+    return `<div class="frow${t.done?' done':''}" data-id="${t.id}">
+      <input type="checkbox" ${t.done?'checked':''} aria-label="Hotovo" data-cb="${t.id}">
+      <span class="rt">${esc(t.title)}${small?`<small>${esc(small)}</small>`:''}</span>
+      ${t.priority?`<span class="prio">${'!'.repeat(t.priority)}</span>`:''}
+      ${di && !di.cls.startsWith('soft')?`<span class="tag ${di.cls}">${esc(di.txt)}</span>`:''}
+      ${pj?`<span class="meta"><span class="pj"><i style="background:${pj.color}"></i>${esc(pj.name)}</span></span>`:''}
+      <span class="est">${taskMin(t)?fmtMin(taskMin(t)):''}</span>
+    </div>`;
+  };
+  const grp=(title, sub, list)=> list.length ? `<section class="f-grp"><div class="f-gh"><h3>${title}</h3><span>${sub}</span></div>${list.map(row).join('')}</section>` : '';
+
+  const wc = state.columns.find(c=>colRole(c)==='waiting');
+  const waiting = wc ? state.tasks.filter(t=>t.col===wc.id && !t.done).sort((a,b)=>(a.remind||'9999').localeCompare(b.remind||'9999')).slice(0,6) : [];
+  const tc=todayCol();
+  const movable = tc ? state.tasks.filter(t=>t.col===tc.id && !t.done && !(t.hard&&t.due&&t.due<=today)).sort((a,b)=>taskRank(b,a)) : [];
+  let over=sum-cap, toMove=[];
+  for(const t of movable){ if(over<=0) break; if(!taskMin(t)) continue; toMove.push(t); over-=taskMin(t); }
+
+  const lbl=new Date().toLocaleDateString('cs-CZ',{weekday:'long', day:'numeric', month:'long'});
+  box.innerHTML=`<div class="focus"><main>
+    <div class="f-top">
+      <div><div style="font-size:13px;color:var(--muted)">${esc(lbl.charAt(0).toUpperCase()+lbl.slice(1))}</div><h2>Dnes</h2></div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--tx2)"><span>${set.length} úkolů · hotovo ${doneN}</span><span class="mono">${fmtMin(sum)} / ${state.capacity||7} h</span></div>
+        <span class="bar" style="height:6px;flex:none"><i style="width:${Math.min(100,Math.round(sum/cap*100))}%;background:${sum>cap?'var(--danger)':'var(--accent)'}"></i></span>
+      </div>
+    </div>
+    ${grp('Pevné termíny','musí být dnes', hard)}
+    ${grp('Hlavní práce','soustředěné bloky', main)}
+    ${grp('Rychlovky','do 20 minut · mezi schůzkami', quick)}
+    ${grp('Volat','vyřídíš z telefonu', calls)}
+    ${set.length?'':`<div class="empty" style="padding:40px">Na dnes nic není. ${tc?'Přetáhni úkoly do sloupce „'+esc(tc.name)+'".':'Nastav některému sloupci roli „Dnes" (menu ⋯ u sloupce).'}</div>`}
+  </main><aside>
+    ${toMove.length?`<div class="panel hot"><h4>Přes kapacitu o ${fmtMin(sum-cap)}</h4><p>Návrh odsunout (nejnižší priorita, bez pevného termínu):</p>${toMove.map(t=>`<div class="it" data-open="${t.id}"><span>${esc(t.title)}</span><span class="mono" style="color:var(--muted)">${fmtMin(taskMin(t))}</span></div>`).join('')}<button class="btn sm" id="f_move" type="button" style="align-self:flex-start">Přesunout do „${esc((inboxCol()||{}).name||'Inbox')}"</button></div>`:''}
+    ${waiting.length?`<div class="panel"><h4>Čeká na odpověď</h4>${waiting.map(t=>`<div class="it" data-open="${t.id}"><span>${esc(t.title)}${t.waitOn?` <span style="color:var(--muted)">· ${esc(t.waitOn)}</span>`:''}</span><span class="mono" style="color:${t.remind&&t.remind<=today?'var(--accent-tx)':'var(--muted)'}">${t.remind?fmtD(t.remind):'—'}</span></div>`).join('')}</div>`:''}
+    <div class="panel"><h4>Deník dne</h4><p>Večer si zapiš, jestli padla žába, co se povedlo a co zítra.</p><button class="btn sm" id="f_journal" type="button" style="align-self:flex-start">Otevřít Manuál na Milana</button></div>
+  </aside></div>`;
+  box.querySelectorAll('.frow').forEach(r=>r.onclick=e=>{ if(e.target.matches('input')) return; openTask(r.dataset.id); });
+  box.querySelectorAll('[data-cb]').forEach(c=>c.onclick=e=>{ e.stopPropagation(); const t=state.tasks.find(x=>x.id===c.dataset.cb); if(!t) return; t.done=c.checked; t.doneAt=c.checked?Date.now():null; if(c.checked) t.returned=false; save(); render(); });
+  box.querySelectorAll('[data-open]').forEach(r=>r.onclick=()=>openTask(r.dataset.open));
+  const mv=document.getElementById('f_move');
+  if(mv) mv.onclick=()=>{ const ic=inboxCol(); if(!ic || (tc && ic.id===tc.id)){ alert('Nastav některému sloupci roli „Inbox".'); return; }
+    if(!confirm('Přesunout '+toMove.length+' úkolů do „'+ic.name+'"?\n\n'+toMove.map(t=>'• '+t.title).join('\n'))) return;
+    toMove.forEach(t=>t.col=ic.id); save(); render(); };
+  const fj=document.getElementById('f_journal'); if(fj) fj.onclick=openJournal;
+}
+function openFocus(){ document.getElementById('focusScr').classList.add('show'); render(); closeSide(); }
+function closeFocus(){ document.getElementById('focusScr').classList.remove('show'); render(); }
+function closeSide(){ document.body.classList.remove('side-open'); }
 
 /* ---------------- drag & drop ---------------- */
 let draggingColId = null;
@@ -1164,85 +1606,160 @@ function getAfter(list, y){
   return null;
 }
 
-/* ---------------- task detail modal ---------------- */
+/* ---------------- detail úkolu (boční panel) ---------------- */
 const overlay = document.getElementById('overlay');
 const modalBox = document.getElementById('modalBox');
 let openTaskId = null;
+let modalDirty = false;
 
 // detail úkolu se nezavírá klikem vedle ani Escapem (neuložené změny by se ztratily) – jen tlačítky
 overlay.onclick = e=>{ if(e.target===overlay && !openTaskId) closeModal(); };
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !openTaskId) closeModal(); });
-function closeModal(){ overlay.classList.remove('show'); modalBox.innerHTML=''; openTaskId=null; document.removeEventListener('paste', pasteHandler); }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !openTaskId && overlay.classList.contains('show')) closeModal(); });
+function closeModal(){ overlay.classList.remove('show'); modalBox.innerHTML=''; modalBox.className='modal'; openTaskId=null; modalDirty=false; document.removeEventListener('paste', pasteHandler); }
 
 function openTask(id){
   const t = state.tasks.find(x=>x.id===id); if(!t) return;
   openTaskModal(t, false);
 }
 function openNewTask(colId, title){
-  openTaskModal({id:uid(), title:title||'', col:colId, tags:[], due:'', note:'', done:false, attachments:[], created:Date.now()}, true);
+  openTaskModal({id:uid(), title:title||'', col:colId, tags:[], due:'', hard:false, note:'', done:false, attachments:[], created:Date.now()}, true);
 }
+function autoGrow(el){ if(!el) return; if(CSS.supports && CSS.supports('field-sizing','content')) return; const f=()=>{ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }; el.addEventListener('input', f); requestAnimationFrame(f); }
+
 function openTaskModal(t, isNew){
-  openTaskId = t.id;
+  openTaskId = t.id; modalDirty=false;
+  modalBox.className='modal';
+  const isForeign = !isNew && t.col==='__assigned';
   modalBox.innerHTML = `
-    <h2>${isNew ? 'Nový úkol' : 'Detail úkolu'}</h2>
-    <label>Název</label>
-    <input type="text" id="m_title" value="${esc(t.title)}">
-    <div class="mrow">
-      <div><label>Sloupec</label><select id="m_col">${state.columns.map(c=>`<option value="${c.id}" ${c.id===t.col?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
-      <div><label>Termín</label><input type="date" id="m_due" value="${t.due||''}"></div>
-    </div>
-    <label>Priorita</label>
-    <div class="tagpick" id="m_prio"></div>
-    <label>Přiřadit lidem <span style="text-transform:none;font-weight:400">(pošle jim e-mail)</span></label>
-    <div class="tagpick" id="m_assign"></div>
-    <label>Projekty</label>
-    <div class="tagpick" id="m_projects"></div>
-    <label>Lidé</label>
-    <div class="tagpick" id="m_people"></div>
-    <label>Časová náročnost</label>
-    <div class="tagpick" id="m_time"></div>
-    <label>Poznámka <span style="text-transform:none;font-weight:400">(nepovinné)</span></label>
-    <textarea id="m_note" placeholder="Detaily, odkazy…">${esc(t.note||'')}</textarea>
-    <label>Přílohy</label>
-    <input type="file" id="m_file" multiple style="font-size:12px">
-    <div class="pastehint">💡 Screenshot můžeš vložit i přes Ctrl+V přímo do tohoto okna.</div>
-    <div class="attachlist" id="m_atts"></div>
-    <label>Podúkoly</label>
-    <div id="m_subs" style="max-height:260px; overflow-y:auto;"></div>
-    <div style="display:flex; gap:6px; margin-top:6px;">
-      <input type="text" id="m_subnew" placeholder="Nový podúkol… (Enter)" style="flex:1;">
-      <button class="btn" id="m_subadd" type="button">Přidat</button>
-    </div>
-    ${isNew ? '' : `
-    <label>Komentáře</label>
-    <div id="m_comments" class="comments"><div class="cm-empty">Načítám…</div></div>
-    <div class="cm-new">
-      <textarea id="m_cmnew" placeholder="Napiš komentář k vývoji úkolu… (Ctrl+Enter odešle, ostatní účastníci dostanou e-mail)"></textarea>
-      <button class="btn primary" id="m_cmadd" type="button">Přidat komentář</button>
-    </div>`}
-    <div class="mfoot">
-      <button class="btn primary" id="m_save">${isNew?'Založit úkol':'Uložit'}</button>
-      <button class="btn" id="m_cancel">Zrušit</button>
+    <div class="d-head">
+      <span class="d-crumb" id="m_crumb"></span>
       <span class="spacer"></span>
-      <button class="btn danger" id="m_del">Smazat úkol</button>
+      ${isNew?'':`<button class="btn sm ${t.done?'':'primary'}" id="m_done" type="button">${ICON('check','style="stroke-width:2.4;width:14px;height:14px"')}${t.done?'Vrátit mezi otevřené':'Hotovo'}</button>`}
+      <button class="xbtn" id="m_close" type="button" aria-label="Zavřít" style="width:34px;height:34px">${ICON('x')}</button>
+    </div>
+    <div class="d-body" id="m_body">
+      <textarea class="d-title" id="m_title" rows="1" placeholder="Co je potřeba udělat?" aria-label="Název úkolu">${esc(t.title)}</textarea>
+      <div class="props">
+        ${isForeign?'':`<span class="pl">Sloupec</span><div class="seg" id="m_col"></div>`}
+        <span class="pl">Termín</span>
+        <div>
+          <div class="seg">
+            <input type="date" class="fld" id="m_due" value="${t.due||''}" aria-label="Termín">
+            <button type="button" class="sbtn" id="m_soft">Chci do</button>
+            <button type="button" class="sbtn hard" id="m_hard">Pevný</button>
+            <button type="button" class="sbtn" id="m_nodue">Bez termínu</button>
+          </div>
+          <span class="hint" id="m_duehint"></span>
+        </div>
+        <span class="pl">Projekt</span><div class="seg" id="m_projects"></div>
+        <span class="pl">Kontext</span><div class="seg" id="m_context"></div>
+        <span class="pl">Lidé</span><div class="seg" id="m_people"></div>
+        <span class="pl">Přiřadit</span><div><div class="seg" id="m_assign"></div><span class="hint">Přiřazeným přijde e-mail.</span></div>
+        <span class="pl">Náročnost</span><div class="seg" id="m_time"></div>
+        <span class="pl">Priorita</span><div class="seg" id="m_prio"></div>
+      </div>
+      <div class="waitbox" id="m_wait" style="display:none">
+        <div style="font-size:13px;font-weight:600">Čeká na někoho</div>
+        <div class="g">
+          <label>Na koho / na co<input type="text" class="fld" id="m_waiton" value="${esc(t.waitOn||'')}" placeholder="např. BP Bohemia"></label>
+          <label>Připomenout<input type="date" class="fld" id="m_remind" value="${t.remind||''}"></label>
+        </div>
+        <div class="seg"><button type="button" class="sbtn" data-rem="1">Zítra</button><button type="button" class="sbtn" data-rem="3">Za 3 dny</button><button type="button" class="sbtn" data-rem="7">Za týden</button></div>
+        <span class="hint" style="margin:0">V den připomenutí se úkol sám vrátí do sloupce s rolí Dnes.</span>
+      </div>
+      <div class="blk">
+        <label class="bt" for="m_note">Poznámka</label>
+        <textarea class="note-area" id="m_note" placeholder="Zadání, kontext, odkazy…">${esc(t.note||'')}</textarea>
+      </div>
+      <div class="blk">
+        <div class="bt">Podúkoly <span class="mono" style="font-weight:400;color:var(--muted);font-size:12px" id="m_subn"></span><span class="bar" id="m_subbar"><i style="width:0;background:var(--ok)"></i></span></div>
+        <div id="m_subs"></div>
+        <input type="text" class="subnew" id="m_subnew" placeholder="+ Nový podúkol (Enter)" aria-label="Nový podúkol">
+      </div>
+      <div class="blk">
+        <div class="bt">Přílohy</div>
+        <div class="attachlist" id="m_atts"></div>
+        <label class="drop" id="m_drop">${ICON('clip')}Přetáhni soubor, klikni, nebo vlož screenshot (Ctrl+V)<input type="file" id="m_file" multiple hidden></label>
+      </div>
+      ${isNew ? '' : `
+      <div class="blk">
+        <div class="bt">Komentáře</div>
+        <div id="m_comments" class="comments"><div class="cm-empty">Načítám…</div></div>
+        <div class="cm-new">
+          <textarea id="m_cmnew" placeholder="Napiš komentář k vývoji úkolu…" aria-label="Nový komentář"></textarea>
+          <div class="r"><span>Ctrl+Enter odešle · ostatní účastníci dostanou e-mail</span><span class="spacer"></span><button class="btn sm" id="m_cmadd" type="button">Odeslat</button></div>
+        </div>
+      </div>`}
+    </div>
+    <div class="d-foot">
+      <button class="btn primary" id="m_save" type="button">${isNew?'Založit úkol':'Uložit'}</button>
+      <button class="btn" id="m_cancel" type="button">Zrušit</button>
+      <span class="spacer"></span>
+      <span class="hint" style="margin:0">Ctrl+S uloží</span>
+      <button class="btn danger" id="m_del" type="button">${ICON('trash','style="width:14px;height:14px"')}Smazat</button>
     </div>`;
 
+  const $ = id => document.getElementById(id);
+  let col = t.col;
+  let due = t.due||'', hard = !!t.hard;
+  let prio = t.priority||0;
   const picked = new Set(t.tags);
+  const assigned = new Set(t.assignees||[]);
+  const markDirty = ()=>{ modalDirty=true; };
+  $('m_body').addEventListener('input', markDirty);
+  $('m_body').addEventListener('click', e=>{ if(e.target.closest('button,input[type=checkbox]')) markDirty(); });
+
+  const drawCrumb=()=>{
+    const pj=[...picked].map(tagById).find(x=>x&&x.type==='project');
+    const c = colById(col) || (isForeign ? {name:'Přiřazené mně · od '+(t.ownerName||'?')} : null);
+    $('m_crumb').innerHTML = (pj?`<i style="background:${pj.color}"></i>${esc(pj.name)}`:'Bez projektu')+(c?' <span style="opacity:.5">/</span> '+esc(c.name):'');
+  };
+  const showWait=()=>{ $('m_wait').style.display = (colRole(colById(col))==='waiting' || $('m_waiton').value.trim() || $('m_remind').value) ? 'flex' : 'none'; };
+
+  if(!isForeign){
+    const drawCols=()=>{
+      const box=$('m_col'); box.innerHTML='';
+      for(const c of state.columns){
+        const b=document.createElement('button'); b.type='button'; b.className='sbtn'+(c.id===col?' on':''); b.textContent=c.name;
+        b.onclick=()=>{ col=c.id; drawCols(); drawCrumb(); showWait(); };
+        box.appendChild(b);
+      }
+    };
+    drawCols();
+  }
+
+  const drawDue=()=>{
+    $('m_soft').classList.toggle('on', !!due && !hard);
+    $('m_hard').classList.toggle('on', !!due && hard);
+    $('m_nodue').classList.toggle('on', !due);
+    $('m_duehint').textContent = !due ? 'Bez termínu – řadí se podle priority a délky.' :
+      hard ? 'Pevný termín: hlídá se a po uplynutí svítí červeně.' : 'Měkký termín: po uplynutí jen zešedne, nekřičí.';
+  };
+  $('m_due').onchange=()=>{ due=$('m_due').value; drawDue(); };
+  $('m_soft').onclick=()=>{ hard=false; if(!due){ $('m_due').showPicker ? $('m_due').showPicker() : $('m_due').focus(); } drawDue(); };
+  $('m_hard').onclick=()=>{ hard=true; if(!due){ $('m_due').showPicker ? $('m_due').showPicker() : $('m_due').focus(); } drawDue(); };
+  $('m_nodue').onclick=()=>{ due=''; hard=false; $('m_due').value=''; drawDue(); };
+  drawDue();
+
   const renderPick = ()=>{
-    for(const [type, elId] of [['project','m_projects'],['person','m_people'],['time','m_time']]){
-      const box = document.getElementById(elId); box.innerHTML='';
+    for(const [type, elId, single] of [['project','m_projects',false],['context','m_context',false],['person','m_people',false],['time','m_time',true]]){
+      const box = $(elId); box.innerHTML='';
       for(const tg of state.tags.filter(x=>x.type===type)){
-        const c = document.createElement('span');
-        c.className='chip'+(picked.has(tg.id)?'':' off');
-        c.style.background=tg.color+'22'; c.style.color=tg.color; c.style.borderColor=tg.color+'55';
-        c.innerHTML=`<span class="dot" style="background:${tg.color}"></span>${esc(tg.name)}`;
-        c.onclick=()=>{ picked.has(tg.id)?picked.delete(tg.id):picked.add(tg.id); renderPick(); };
+        const c = document.createElement('button'); c.type='button';
+        c.className = 'sbtn'+(type==='time'?'':' pill')+(picked.has(tg.id)?' on':'');
+        c.innerHTML = type==='time' ? `<span class="mono" style="font-size:12px">${esc(tg.name)}</span>` : `<i style="background:${tg.color}"></i>${esc(tg.name)}`;
+        c.onclick=()=>{
+          if(picked.has(tg.id)) picked.delete(tg.id);
+          else { if(single) state.tags.filter(x=>x.type===type).forEach(x=>picked.delete(x.id)); picked.add(tg.id); }
+          renderPick(); drawCrumb();
+        };
         box.appendChild(c);
       }
-      const plus=document.createElement('span'); plus.className='chip'; plus.style.borderColor='var(--border)'; plus.textContent='+';
-      plus.title = type==='project' ? 'Přidat projekt' : type==='person' ? 'Přidat člověka' : 'Přidat variantu času';
+      const plus=document.createElement('button'); plus.type='button'; plus.className='sbtn add'+(type==='time'?'':' pill'); plus.textContent='+';
+      plus.title = {project:'Přidat projekt', context:'Přidat kontext (např. Volat, WhatsApp, Platby)', person:'Přidat člověka', time:'Přidat variantu času'}[type];
+      plus.setAttribute('aria-label', plus.title);
       plus.onclick=()=>{
-        const name = prompt(type==='project'?'Název nového projektu:':type==='person'?'Jméno nového člověka:':'Nová časová náročnost:'); if(!name) return;
+        const name = prompt({project:'Název nového projektu:', context:'Nový kontext (např. Volat, WhatsApp, Platby):', person:'Jméno nového člověka:', time:'Nová časová náročnost (např. 30 min):'}[type]); if(!name) return;
         const tg = {id:uid(), name:name.trim(), type, color:PALETTE[state.tags.length % PALETTE.length]};
         state.tags.push(tg); picked.add(tg.id); save(); renderPick(); renderHeader();
       };
@@ -1251,48 +1768,50 @@ function openTaskModal(t, isNew){
   };
   renderPick();
 
-  let prio = t.priority||0;
   const drawPrio = ()=>{
-    const box=document.getElementById('m_prio'); box.innerHTML='';
-    [['žádná',0],['!',1],['!!',2],['!!!',3]].forEach(([lab,val])=>{
-      const c=document.createElement('span'); c.className='chip'+(prio===val?'':' off'); c.textContent=lab;
-      c.style.borderColor='var(--border)'; c.style.fontWeight='800';
-      c.style.color = val>=3?'var(--danger)':val===2?'var(--warn)':val===1?'var(--soon)':'var(--muted)';
+    const box=$('m_prio'); box.innerHTML='';
+    [['Žádná',0],['!',1],['!!',2],['!!!',3]].forEach(([lab,val])=>{
+      const c=document.createElement('button'); c.type='button'; c.className='sbtn'+(val?' pri':'')+(prio===val?' on':''); c.textContent=lab;
+      if(val) c.style.minWidth='40px';
       c.onclick=()=>{ prio=val; drawPrio(); };
       box.appendChild(c);
     });
   };
   drawPrio();
 
-  const assigned = new Set(t.assignees||[]);
   const drawAssign = ()=>{
-    const box=document.getElementById('m_assign'); box.innerHTML='';
+    const box=$('m_assign'); box.innerHTML='';
     const others = PEOPLE.filter(p=>!ME || p.name!==ME.name);
-    if(!others.length){ box.innerHTML='<span style="color:var(--muted);font-size:11px">Zatím žádní další uživatelé.</span>'; return; }
+    if(!others.length){ box.innerHTML='<span style="color:var(--muted);font-size:12.5px;padding-top:6px">Zatím žádní další uživatelé.</span>'; return; }
     for(const p of others){
-      const c=document.createElement('span'); c.className='chip'+(assigned.has(p.name)?'':' off');
-      c.textContent=p.name; c.style.borderColor='var(--border)';
+      const c=document.createElement('button'); c.type='button'; c.className='sbtn pill'+(assigned.has(p.name)?' on':'');
+      c.innerHTML=`<span class="av" style="width:20px;height:20px;font-size:9px;box-shadow:none;margin-left:-6px;background:${personColor(p.name)}">${esc(initials(p.name))}</span>${esc(p.name)}`;
       c.onclick=()=>{ assigned.has(p.name)?assigned.delete(p.name):assigned.add(p.name); drawAssign(); };
       box.appendChild(c);
     }
   };
   drawAssign();
+  drawCrumb();
+
+  $('m_waiton').oninput=showWait; $('m_remind').onchange=showWait;
+  modalBox.querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{ $('m_remind').value=shiftDate(todayISO(), +b.dataset.rem); showWait(); });
+  showWait();
 
   const tempAtts = [...(t.attachments||[])];
   const renderAtts = ()=>{
-    const box = document.getElementById('m_atts'); box.innerHTML='';
+    const box = $('m_atts'); box.innerHTML='';
     tempAtts.forEach((a,i)=>{
       const w = document.createElement('div'); w.className='att';
-      if(a.type.startsWith('image/')){
-        const img=document.createElement('img'); img.src=a.data; img.title=a.name;
-        img.onclick=()=>{ document.getElementById('imgviewImg').src=a.data; document.getElementById('imgview').classList.add('show'); };
+      if(a.type && a.type.startsWith('image/')){
+        const img=document.createElement('img'); img.src=a.data; img.title=a.name; img.alt=a.name;
+        img.onclick=()=>{ $('imgviewImg').src=a.data; $('imgview').classList.add('show'); };
         w.appendChild(img);
       } else {
         const l=document.createElement('a'); l.className='fname'; l.textContent=a.name; l.href=a.data; l.download=a.name;
         w.appendChild(l);
       }
-      const rm=document.createElement('button'); rm.className='rm'; rm.textContent='✕';
-      rm.onclick=()=>{ tempAtts.splice(i,1); renderAtts(); };
+      const rm=document.createElement('button'); rm.className='rm'; rm.type='button'; rm.textContent='✕'; rm.setAttribute('aria-label','Odebrat přílohu');
+      rm.onclick=()=>{ tempAtts.splice(i,1); markDirty(); renderAtts(); };
       w.appendChild(rm);
       box.appendChild(w);
     });
@@ -1301,52 +1820,73 @@ function openTaskModal(t, isNew){
 
   const tempSubs = (t.subs||[]).map(x=>({...x}));
   const drawSubs = ()=>{
-    const box=document.getElementById('m_subs'); box.innerHTML='';
+    const box=$('m_subs'); box.innerHTML='';
+    const d=tempSubs.filter(x=>x.done).length;
+    $('m_subn').textContent = tempSubs.length ? d+' / '+tempSubs.length : '';
+    $('m_subbar').style.display = tempSubs.length ? '' : 'none';
+    $('m_subbar').firstElementChild.style.width = tempSubs.length ? Math.round(d/tempSubs.length*100)+'%' : '0';
     tempSubs.forEach((su,i)=>{
-      const r=document.createElement('div'); r.style.cssText='display:flex; align-items:center; gap:6px; padding:3px 0;';
-      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!su.done; cb.onchange=()=>{ su.done=cb.checked; drawSubs(); };
-      const ti=document.createElement('input'); ti.type='text'; ti.value=su.title; ti.style.flex='1'; ti.onchange=()=>{ su.title=ti.value.trim(); };
-      const rm=document.createElement('button'); rm.className='col-x'; rm.textContent='✕'; rm.title='Smazat podúkol'; rm.onclick=()=>{ tempSubs.splice(i,1); drawSubs(); };
+      const r=document.createElement('div'); r.className='subrow';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!su.done; cb.setAttribute('aria-label','Hotovo');
+      cb.onchange=()=>{ su.done=cb.checked; drawSubs(); };
+      const ti=document.createElement('input'); ti.type='text'; ti.value=su.title; if(su.done) ti.className='d'; ti.setAttribute('aria-label','Podúkol');
+      ti.onchange=()=>{ su.title=ti.value.trim(); };
+      const rm=document.createElement('button'); rm.type='button'; rm.className='xbtn'; rm.innerHTML=ICON('x','style="width:14px;height:14px"'); rm.setAttribute('aria-label','Smazat podúkol');
+      rm.onclick=()=>{ tempSubs.splice(i,1); drawSubs(); };
       r.append(cb,ti,rm); box.appendChild(r);
     });
   };
   drawSubs();
-  const addSub=()=>{ const inp=document.getElementById('m_subnew'); const v=inp.value.trim(); if(!v) return; tempSubs.push({id:uid(), title:v, done:false}); inp.value=''; drawSubs(); inp.focus(); };
-  document.getElementById('m_subadd').onclick=addSub;
-  document.getElementById('m_subnew').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); addSub(); } };
+  $('m_subnew').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(!v) return; tempSubs.push({id:uid(), title:v, done:false}); e.target.value=''; drawSubs(); } };
 
   const addFiles = files=>{
     for(const f of files){
-      if(f.size > 2_000_000 && !confirm(`Soubor "${f.name}" je větší (${Math.round(f.size/1024)} kB). Úložiště prohlížeče je omezené. Přidat i tak?`)) continue;
+      if(f.size > 2_000_000 && !confirm(`Soubor „${f.name}" je větší (${Math.round(f.size/1024)} kB). Úložiště je omezené. Přidat i tak?`)) continue;
       const r = new FileReader();
-      r.onload = ()=>{ tempAtts.push({name:f.name||'screenshot.png', type:f.type, data:r.result}); renderAtts(); };
+      r.onload = ()=>{ tempAtts.push({name:f.name||'screenshot.png', type:f.type, data:r.result}); markDirty(); renderAtts(); };
       r.readAsDataURL(f);
     }
   };
-  document.getElementById('m_file').onchange = e=>addFiles(e.target.files);
+  $('m_file').onchange = e=>addFiles(e.target.files);
+  const drop=$('m_drop');
+  drop.ondragover=e=>{ e.preventDefault(); drop.style.borderColor='var(--accent)'; };
+  drop.ondragleave=()=>{ drop.style.borderColor=''; };
+  drop.ondrop=e=>{ e.preventDefault(); drop.style.borderColor=''; if(e.dataTransfer.files.length) addFiles(e.dataTransfer.files); };
   window._addFiles = addFiles;
   document.addEventListener('paste', pasteHandler);
 
-  document.getElementById('m_save').onclick = ()=>{
-    const title = document.getElementById('m_title').value.trim();
-    if(!title){ alert('Zadej název úkolu.'); document.getElementById('m_title').focus(); return; }
+  const doSave = ()=>{
+    const title = $('m_title').value.trim();
+    if(!title){ alert('Zadej název úkolu.'); $('m_title').focus(); return; }
     t.title = title;
-    t.col   = document.getElementById('m_col').value;
-    t.due   = document.getElementById('m_due').value;
-    t.note  = document.getElementById('m_note').value;
+    if(!isForeign && t.col!==col){ t.col = col; t.returned = false; }
+    t.due   = due;
+    t.hard  = !!(due && hard);
+    t.note  = $('m_note').value;
     t.priority = prio;
     t.assignees = [...assigned];
     t.tags  = [...picked];
     t.attachments = tempAtts;
     t.subs = tempSubs.filter(x=>x.title);
-    if(t.subsOpen===undefined) t.subsOpen = t.subs.length>0;
+    t.waitOn = $('m_waiton').value.trim();
+    t.remind = $('m_remind').value;
+    if(t.remind && t.remind>todayISO()) t.returned=false;
+    if(t.subsOpen===undefined) t.subsOpen = false;
     if(isNew) state.tasks.push(t);
     save(); closeModal(); render();
   };
-  document.getElementById('m_cancel').onclick = closeModal;
+  const doCancel = ()=>{ if(modalDirty && !confirm('Zahodit neuložené změny?')) return; closeModal(); };
+  $('m_save').onclick = doSave;
+  $('m_cancel').onclick = doCancel;
+  $('m_close').onclick = doCancel;
+  modalBox.onkeydown = e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); doSave(); } };
+  if($('m_done')) $('m_done').onclick = ()=>{
+    if(modalDirty){ doSave(); t.done=!t.done; t.doneAt=t.done?Date.now():null; if(t.done) t.returned=false; save(); render(); return; }
+    t.done=!t.done; t.doneAt=t.done?Date.now():null; if(t.done) t.returned=false; save(); closeModal(); render();
+  };
   if(!isNew) setupComments(t);
-  const _delBtn = document.getElementById('m_del');
-  if(isNew){ _delBtn.style.display='none'; }
+  const _delBtn = $('m_del');
+  if(isNew || isForeign){ _delBtn.style.display='none'; }
   else _delBtn.onclick = ()=>{
     if(!confirm('Smazat tento úkol?')) return;
     PENDING_DEL.push(t.id); delete TASK_BASE[t.id];
@@ -1354,7 +1894,8 @@ function openTaskModal(t, isNew){
     save(); closeModal(); render();
   };
   overlay.classList.add('show');
-  document.getElementById('m_title').focus();
+  autoGrow($('m_title')); autoGrow($('m_note')); if($('m_cmnew')) autoGrow($('m_cmnew'));
+  if(isNew) $('m_title').focus();
 }
 /* ---------------- komentáře k úkolu (tabulka task_comments) ---------------- */
 let COMMENT_COUNT = {};
@@ -1436,21 +1977,23 @@ document.getElementById('tagsBtn').onclick = ()=>{
     const rows = type => state.tags.filter(t=>t.type===type).map(t=>`
       <div class="tagmg-row" data-id="${t.id}">
         <input type="color" value="${t.color}" data-act="color">
-        <input type="text" class="nm" value="${esc(t.name)}" data-act="name" style="border:1px solid var(--border);border-radius:5px;padding:3px 6px">
-        <button class="col-x" data-act="del" title="Smazat štítek">✕</button>
+        <input type="text" class="nm fld" value="${esc(t.name)}" data-act="name" aria-label="Název štítku">
+        <button class="xbtn" data-act="del" title="Smazat štítek" aria-label="Smazat štítek" type="button">${ICON('x','style="width:14px;height:14px"')}</button>
       </div>`).join('');
-    modalBox.innerHTML = `
+    modalBox.className = 'modal center';
+    modalBox.innerHTML = `<div class="mpad">
       <h2>Správa štítků</h2>
       <small class="sect">PROJEKTY</small>${rows('project')}
+      <small class="sect">KONTEXTY · např. Volat, WhatsApp, Platby (filtry nad nástěnkou)</small>${rows('context')}
       <small class="sect">LIDÉ</small>${rows('person')}
       <small class="sect">ČASOVÁ NÁROČNOST</small>${rows('time')}
       <div class="newtag">
-        <select id="nt_type"><option value="project">Projekt</option><option value="person">Člověk</option><option value="time">Čas</option></select>
-        <input type="text" id="nt_name" placeholder="Název nového štítku">
-        <button class="btn primary" id="nt_add">Přidat</button>
+        <select id="nt_type" class="fld" aria-label="Typ štítku"><option value="project">Projekt</option><option value="context">Kontext</option><option value="person">Člověk</option><option value="time">Čas</option></select>
+        <input type="text" id="nt_name" class="fld" placeholder="Název nového štítku" aria-label="Název nového štítku">
+        <button class="btn sm primary" id="nt_add" type="button">Přidat</button>
       </div>
-      <div class="mfoot"><button class="btn primary" id="tm_close">Hotovo</button></div>
-      <span id="tm_list" hidden></span>`;
+      <div style="margin-top:16px"><button class="btn primary" id="tm_close" type="button">Hotovo</button></div>
+      <span id="tm_list" hidden></span></div>`;
     modalBox.querySelectorAll('.tagmg-row').forEach(rw=>{
       const tg = tagById(rw.dataset.id);
       rw.querySelector('[data-act=color]').oninput = e=>{ tg.color=e.target.value; save(); renderHeader(); };
@@ -1739,7 +2282,8 @@ document.getElementById('hideDoneBtn').onclick = ()=>{ state.hideDone=!state.hid
 function applyTheme(){
   const on = !!state.dark;
   document.body.classList.toggle('dark', on);
-  const b=document.getElementById('themeBtn'); if(b) b.textContent = on ? '☀️ Světlý' : '🌙 Tmavý';
+  const b=document.getElementById('themeBtn'); if(b) b.textContent = on ? 'Světlý režim' : 'Tmavý režim';
+  const tcm=document.querySelector('meta[name=theme-color]'); if(tcm) tcm.content = on ? '#0E0F11' : '#F3F3F1';
 }
 document.getElementById('themeBtn').onclick = ()=>{ state.dark=!state.dark; save(); applyTheme(); };
 applyTheme();
@@ -1775,7 +2319,7 @@ function openDash(){
       if(same(d,tmr)) tomoH+=h;
       if(d>=sow && d<=eow) weekH+=h;
       if(d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear()) monthH+=h;
-      if(d<now){ overdueCount++; overdueH+=h; }
+      if(d<now){ if(t.hard){ overdueCount++; overdueH+=h; } }
       else { if(!dueMap[t.due]) dueMap[t.due]={c:0,h:0}; dueMap[t.due].c++; dueMap[t.due].h+=h; }
     }
   }
@@ -1785,7 +2329,7 @@ function openDash(){
     return wdn[d.getDay()]+' '+lbl+' · '+rel; };
   const keys=Object.keys(dueMap).sort();
   let rows='';
-  if(overdueCount) rows+=`<div class="duerow overdue"><span class="dd">⚠ Po termínu</span><span class="dc">${overdueCount} úkolů · ${fmtH(overdueH)}</span></div>`;
+  if(overdueCount) rows+=`<div class="duerow overdue"><span class="dd">Pevné termíny po termínu</span><span class="dc">${overdueCount} úkolů · ${fmtH(overdueH)}</span></div>`;
   for(const k of keys) rows+=`<div class="duerow"><span class="dd">${esc(fmtDate(k))}</span><span class="dc">${dueMap[k].c} úkolů · ${fmtH(dueMap[k].h)}</span></div>`;
   if(!rows) rows='<div style="color:var(--muted); font-style:italic; padding:10px;">Žádné nadcházející termíny.</div>';
   document.getElementById('dashBody').innerHTML = `
@@ -1844,10 +2388,10 @@ function renderNotes(){
     const mk=(label,cmd,deco)=>{ const b=document.createElement('button'); b.type='button'; b.textContent=label; if(deco) b.style.textDecoration=deco; b.onmousedown=e=>e.preventDefault(); b.onclick=()=>{ bodyEl.focus(); document.execCommand(cmd,false,null); n.html=bodyEl.innerHTML; saveNotesSoon(); }; return b; };
     tb.append(mk('B','bold'), mk('U','underline','underline'), mk('S','strikeThrough','line-through'));
     const act=document.createElement('div'); act.className='note-actions';
-    const up=document.createElement('button'); up.textContent='↑'; up.title='Posunout nahoru'; up.onclick=()=>moveNote(n,-1);
-    const dn=document.createElement('button'); dn.textContent='↓'; dn.title='Posunout dolů'; dn.onclick=()=>moveNote(n,1);
-    const ar=document.createElement('button'); ar.textContent=n.archived?'♻️':'🗄️'; ar.title=n.archived?'Obnovit z archivu':'Archivovat'; ar.onclick=()=>{ n.archived=!n.archived; n.updated=Date.now(); save(); renderNotes(); };
-    const del=document.createElement('button'); del.textContent='🗑️'; del.title='Smazat'; del.onclick=()=>{ if(!confirm('Smazat poznámku?')) return; state.notes=state.notes.filter(x=>x!==n); save(); renderNotes(); };
+    const up=document.createElement('button'); up.textContent='Nahoru'; up.title='Posunout nahoru'; up.onclick=()=>moveNote(n,-1);
+    const dn=document.createElement('button'); dn.textContent='Dolů'; dn.title='Posunout dolů'; dn.onclick=()=>moveNote(n,1);
+    const ar=document.createElement('button'); ar.textContent=n.archived?'Obnovit':'Archivovat'; ar.onclick=()=>{ n.archived=!n.archived; n.updated=Date.now(); save(); renderNotes(); };
+    const del=document.createElement('button'); del.textContent='Smazat'; del.onclick=()=>{ if(!confirm('Smazat poznámku?')) return; state.notes=state.notes.filter(x=>x!==n); save(); renderNotes(); };
     act.append(up,dn,ar,del);
     card.append(top, tb, bodyEl, act);
     body.appendChild(card);
@@ -1891,6 +2435,25 @@ document.getElementById('importFile').onchange = e=>{
   e.target.value='';
 };
 
+/* ---------------- navigace, zkratky, mobil ---------------- */
+document.getElementById('navBoard').onclick = ()=>{ closeFocus(); closeSide(); };
+document.getElementById('navFocus').onclick = openFocus;
+document.getElementById('focusClose').onclick = closeFocus;
+document.getElementById('newTaskBtn').onclick = ()=>{ const c=inboxCol(); if(!c){ alert('Nejdřív přidej sloupec.'); return; } openNewTask(c.id, ''); };
+document.getElementById('sideBtn').onclick = e=>{ e.stopPropagation(); document.body.classList.toggle('side-open'); };
+document.getElementById('main').addEventListener('click', ()=>closeSide());
+['dashBtn','notesBtn','manualBtn'].forEach(id=>document.getElementById(id).addEventListener('click', closeSide));
+document.addEventListener('keydown', e=>{
+  const typing = e.target.closest('input,textarea,select,[contenteditable=true]');
+  if(e.key==='Escape' && document.getElementById('focusScr').classList.contains('show') && !overlay.classList.contains('show')) closeFocus();
+  if(typing || e.ctrlKey || e.metaKey || e.altKey || overlay.classList.contains('show')) return;
+  if(e.key==='/'){ e.preventDefault(); document.getElementById('search').focus(); }
+  else if(e.key==='n'){ e.preventDefault(); document.getElementById('newTaskBtn').click(); }
+  else if(e.key==='d'){ e.preventDefault(); document.getElementById('focusScr').classList.contains('show') ? closeFocus() : openFocus(); }
+});
+setInterval(()=>{ if(resurface()){ save(); render(); } }, 10*60*1000);
+
+if(resurface()) save();
 render();
 initAuth();
 </script>
