@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revize projektů</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#F3F3F1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F3F1; --side:#ECECE9; --card:#FFFFFF; --card2:#FAFAF8; --line:#DEDED9; --line2:#CFCFC9;
+  --text:#18191B; --tx2:#545860; --muted:#6E727A; --accent:#F2B544; --accent-ink:#141518; --accent-tx:#94600B; --accent-soft:rgba(242,181,68,.22);
+  --green:#2F9E63; --green-bg:rgba(47,158,99,.12); --orange:#C77712; --orange-bg:rgba(242,163,92,.18); --red:#C93A30; --red-bg:rgba(220,38,38,.10);
+  --input:#FFFFFF; --hover:#E4E4E0; --overlay:rgba(20,21,24,.35); --shadow:0 1px 2px rgba(0,0,0,.05);
+  --font:'Geist',system-ui,-apple-system,"Segoe UI",sans-serif; --mono:'Geist Mono',ui-monospace,monospace;
+}
+body.dark{
+  --bg:#0E0F11; --side:#121316; --card:#1C1E22; --card2:#212429; --line:#2A2D33; --line2:#3A3E45;
+  --text:#EDEEF0; --tx2:#A6AAB1; --muted:#868B94; --accent-tx:#F2C062; --accent-soft:rgba(242,181,68,.16);
+  --green:#5CC98A; --green-bg:rgba(92,201,138,.13); --orange:#F2A35C; --orange-bg:rgba(242,163,92,.15); --red:#F2766B; --red-bg:rgba(242,118,107,.15);
+  --input:#111214; --hover:#1A1C20; --overlay:rgba(5,6,8,.6); --shadow:none;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{font-family:var(--font); background:var(--bg); color:var(--text); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased; min-height:100vh;}
+button,input,select,textarea{font-family:inherit; color:inherit; font-size:inherit;}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+a{color:var(--accent-tx);}
+.mono{font-family:var(--mono); font-feature-settings:"tnum";}
+.wrap{max-width:1180px; margin:0 auto; padding:20px 16px 80px;}
+.narrow{max-width:720px;}
+
+/* header */
+.top{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px;}
+.logo{width:28px; height:28px; border-radius:8px; background:var(--accent); color:var(--accent-ink); display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:none;}
+.top h1{font-size:18px; font-weight:600; letter-spacing:-.01em;}
+.top .sub{color:var(--muted); font-size:13px;}
+.top .spacer{flex:1;}
+.tabs{display:flex; gap:4px; background:var(--side); border:1px solid var(--line); border-radius:10px; padding:3px;}
+.tab{border:0; background:transparent; padding:7px 12px; border-radius:7px; cursor:pointer; color:var(--tx2); font-size:13px;}
+.tab.on{background:var(--card); color:var(--text); font-weight:500; box-shadow:var(--shadow);}
+.btn{height:34px; padding:0 14px; border:1px solid var(--line2); border-radius:8px; background:var(--card); cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;}
+.btn:hover{border-color:var(--text);}
+.btn.pri{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600;}
+.btn.ghost{background:transparent; border-color:transparent; color:var(--tx2);}
+.btn.ghost:hover{color:var(--text); background:var(--hover);}
+.btn.sm{height:28px; padding:0 10px; font-size:12px;}
+.btn:disabled{opacity:.5; cursor:default;}
+
+/* stats */
+.stats{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:18px;}
+.stat{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px;}
+.stat b{display:block; font-size:22px; font-weight:600; font-family:var(--mono);}
+.stat span{color:var(--muted); font-size:12.5px;}
+.stat.red b{color:var(--red);} .stat.orange b{color:var(--orange);} .stat.green b{color:var(--green);}
+
+/* cards */
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:12px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:var(--shadow); border-left-width:4px;}
+.card.l-green{border-left-color:var(--green);} .card.l-orange{border-left-color:var(--orange);} .card.l-red{border-left-color:var(--red);} .card.l-none{border-left-color:var(--line2); border-left-style:dashed;}
+.card h3{font-size:15px; font-weight:600; letter-spacing:-.01em; line-height:1.3;}
+.card .head{display:flex; gap:10px; align-items:flex-start;}
+.card .head .t{flex:1; min-width:0;}
+.meta{color:var(--muted); font-size:12.5px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.pill{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:500; padding:2px 8px; border-radius:999px; white-space:nowrap;}
+.pill.green{background:var(--green-bg); color:var(--green);} .pill.orange{background:var(--orange-bg); color:var(--orange);} .pill.red{background:var(--red-bg); color:var(--red);}
+.pill.none{background:var(--hover); color:var(--tx2);}
+.pill.warn{background:var(--red-bg); color:var(--red);}
+.dot{width:8px; height:8px; border-radius:50%; background:currentColor; flex:none;}
+.fld{display:grid; grid-template-columns:96px 1fr; gap:8px; font-size:13px;}
+.fld dt{color:var(--muted);}
+.fld dd{white-space:pre-wrap; word-break:break-word;}
+.fld dd.empty{color:var(--muted); font-style:italic;}
+.decs{border-top:1px dashed var(--line); padding-top:8px; font-size:12.5px; color:var(--tx2); display:flex; flex-direction:column; gap:4px;}
+.decs b{color:var(--text); font-weight:500;}
+.card .acts{display:flex; gap:6px; flex-wrap:wrap; margin-top:auto;}
+.sect{font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:22px 0 10px;}
+
+/* form */
+.form{display:flex; flex-direction:column; gap:12px;}
+.form label{display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:var(--tx2); font-weight:500;}
+.form .hint{font-weight:400; color:var(--muted); font-size:12px;}
+textarea,input[type=text],input[type=email],input[type=date],input[type=password],input[type=number],select{width:100%; background:var(--input); border:1px solid var(--line2); border-radius:8px; padding:9px 10px; font-size:14px; color:var(--text);}
+textarea{resize:vertical; min-height:62px; line-height:1.45;}
+body.dark input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1) brightness(1.6);}
+.row2{display:grid; grid-template-columns:1fr 160px; gap:10px;}
+.lights{display:grid; grid-template-columns:repeat(3,1fr); gap:6px;}
+.lights button{height:40px; border:1px solid var(--line2); border-radius:8px; background:var(--card); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; font-size:13px;}
+.lights button[data-l=green].on{background:var(--green-bg); border-color:var(--green); color:var(--green); font-weight:600;}
+.lights button[data-l=orange].on{background:var(--orange-bg); border-color:var(--orange); color:var(--orange); font-weight:600;}
+.lights button[data-l=red].on{background:var(--red-bg); border-color:var(--red); color:var(--red); font-weight:600;}
+.lights button[data-l=green]{color:var(--green);} .lights button[data-l=orange]{color:var(--orange);} .lights button[data-l=red]{color:var(--red);}
+.lights button span{color:var(--text);}
+.prev{background:var(--card2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:12.5px; color:var(--tx2);}
+.prev b{color:var(--text); font-weight:500;}
+.ownbox{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:var(--shadow);}
+.ownbox h3{font-size:16px; font-weight:600; margin-bottom:2px;}
+.saved{color:var(--green); font-size:12.5px;}
+
+/* tables */
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th{text-align:left; color:var(--muted); font-weight:500; font-size:12px; padding:6px 8px; border-bottom:1px solid var(--line);}
+td{padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:middle;}
+td input[type=text],td input[type=email],td select,td input[type=number]{padding:6px 8px; font-size:13px;}
+.tablewrap{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:6px; overflow-x:auto;}
+.chk{width:16px; height:16px; accent-color:var(--accent);}
+
+/* modal */
+.ov{position:fixed; inset:0; background:var(--overlay); display:none; align-items:flex-start; justify-content:center; padding:5vh 12px; z-index:50; overflow-y:auto;}
+.ov.show{display:flex;}
+.modal{background:var(--bg); border:1px solid var(--line); border-radius:14px; width:100%; max-width:640px; padding:18px; box-shadow:0 20px 50px rgba(0,0,0,.25);}
+.modal .mh{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+.modal .mh h2{font-size:16px; font-weight:600; flex:1;}
+.hist{display:flex; flex-direction:column; gap:10px;}
+.hist .hi{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px;}
+
+/* revize mode */
+.rv{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:12px; border-left-width:5px;}
+.rv.l-red{border-left-color:var(--red);} .rv.l-orange{border-left-color:var(--orange);} .rv.l-none{border-left-color:var(--line2); border-left-style:dashed;}
+.rvgrid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px;}
+.decform{display:grid; grid-template-columns:1fr 150px 140px auto; gap:8px; align-items:end; margin-top:12px; padding-top:12px; border-top:1px dashed var(--line);}
+.decform label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted);}
+.todo-chk{display:flex !important; flex-direction:row !important; align-items:center; gap:6px; font-size:12.5px !important; color:var(--tx2) !important; white-space:nowrap;}
+
+.empty-state{background:var(--card); border:1px dashed var(--line2); border-radius:12px; padding:28px; text-align:center; color:var(--tx2);}
+.login{max-width:380px; margin:10vh auto; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px;}
+.login h2{font-size:17px; margin-bottom:4px;}
+.login p{color:var(--muted); font-size:13px; margin-bottom:14px;}
+#toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--text); color:var(--bg); padding:10px 16px; border-radius:10px; font-size:13px; opacity:0; transition:.2s; pointer-events:none; z-index:80; max-width:90vw;}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+.err{color:var(--red); font-size:13px;}
+.summary{white-space:pre-wrap; font-family:var(--mono); font-size:12.5px; background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:12px; max-height:50vh; overflow:auto;}
+
+@media (max-width:760px){
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .grid{grid-template-columns:1fr;}
+  .rvgrid{grid-template-columns:1fr;}
+  .decform{grid-template-columns:1fr 1fr;}
+  .decform .wide{grid-column:1 / -1;}
+  .row2{grid-template-columns:1fr;}
+  .fld{grid-template-columns:84px 1fr;}
+  .top h1{font-size:16px;}
+}
+</style>
+</head>
+<body>
+<div id="app" class="wrap"><p class="sub" style="padding:40px 0">Načítám…</p></div>
+
+<div class="ov" id="ov"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+/* =====================================================================
+   Revize projektů – týdenní karty projektů (todomk / Westprint)
+   - vlastník projektu vyplňuje kartu přes osobní odkaz  ?k=<token>  (bez registrace)
+   - Milan a Lukáš (přihlášení v todomk) vidí vše, vedou revizi, zapisují rozhodnutí
+   - rozhodnutí z revize jde jedním klikem jako úkol do todomk (sloupec Zpracovat)
+   Data: Supabase tabulky rev_people, rev_projects, rev_cards, rev_decisions
+   ===================================================================== */
+const SUPABASE_URL = 'https://ymjedsrhsbkiipnpfwlm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltamVkc3Joc2JraWlwbnBmd2xtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjcwMjYsImV4cCI6MjA5ODc0MzAyNn0.rszr0ZdyWtESBp2KXmLgVnEYNn50c8XMa4x2sSXVQ9o';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const LIGHTS = { green:'Jede', orange:'Zpoždění', red:'Stojí' };
+const DAYS = ['ne','po','út','st','čt','pá','so'];
+function fmtD(iso, withDay){ if(!iso) return ''; const d=new Date(iso+'T12:00:00'); return (withDay?DAYS[d.getDay()]+' ':'')+d.getDate()+'. '+(d.getMonth()+1)+'.'; }
+function addDays(iso, n){ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'), 2600); }
+function norm(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+
+/* téma: převezme tmavý režim z todomk, jinak podle systému */
+(function(){
+  let dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+  try{ const s = JSON.parse(localStorage.getItem('milan-ukoly-v1')||'null'); if(s && typeof s.dark==='boolean') dark = s.dark; }catch(e){}
+  document.body.classList.toggle('dark', dark);
+  const m=document.querySelector('meta[name=theme-color]'); if(m) m.content = dark ? '#0E0F11' : '#F3F3F1';
+})();
+
+/* datum revize (stejná logika jako rev_current_revize v databázi): nejbližší úterý, po úterý 12:00 další */
+function currentRevize(){
+  const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Prague'}));
+  const dow = now.getDay(); // 0=ne … 2=út
+  const d = new Date(now); d.setHours(12,0,0,0);
+  if(dow===2 && now.getHours()<12) return d.toISOString().slice(0,10);
+  let add = (2 - dow + 7) % 7; if(add===0) add = 7;
+  d.setDate(d.getDate()+add); return d.toISOString().slice(0,10);
+}
+
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get('k');
+let S = { mode:null, me:null, revize:currentRevize(), people:[], projects:[], cards:[], decisions:[], tab:'week' };
+
+/* ===================================================================== */
+/*  MÓD 1: osobní odkaz vlastníka                                         */
+/* ===================================================================== */
+async function loadToken(){
+  const { data, error } = await sb.rpc('rev_board', { k: TOKEN });
+  if(error){ renderBadLink(); return; }
+  S.mode='owner'; S.me=data.me; S.revize=data.revize; S.people=data.people; S.projects=data.projects;
+  renderOwner();
+}
+function renderBadLink(){
+  $('#app').innerHTML = `<div class="login"><h2>Odkaz nefunguje</h2><p>Tenhle osobní odkaz je neplatný nebo byl vyměněn. Napiš Milanovi nebo Lukášovi o nový.</p></div>`;
+}
+function personName(id){ const p=S.people.find(x=>x.id===id); return p?p.name:'bez vlastníka'; }
+
+function renderOwner(){
+  const mine = S.projects.filter(p=>p.owner_id===S.me.id);
+  const others = S.projects.filter(p=>p.owner_id!==S.me.id);
+  const doneCount = mine.filter(p=>(p.cards[0]||{}).revize===S.revize).length;
+  $('#app').className='wrap narrow';
+  $('#app').innerHTML = `
+    <div class="top">
+      <span class="logo">R</span>
+      <div><h1>Revize projektů</h1><div class="sub">Ahoj ${esc(S.me.name.split(' ')[0])} · revize <b>${fmtD(S.revize,true)}</b> v 9:00 · vyplň do pondělního večera</div></div>
+    </div>
+    ${mine.length ? `<p class="sub" style="margin:-6px 0 14px">${doneCount}/${mine.length} vyplněno. Stačí 2 minuty na projekt: co se udělalo, co bude příští týden a na čem to visí.</p>` : ''}
+    <div id="mine">${mine.length ? mine.map(ownerForm).join('') : `<div class="empty-state">Teď nemáš přidělený žádný projekt. Až ti ho Milan nebo Lukáš přidělí, objeví se tady.</div>`}</div>
+    ${others.length ? `<div class="sect">Ostatní projekty</div><div class="grid">${others.map(p=>readCard(p, p.cards[0], p.cards[1], false)).join('')}</div>` : ''}
+  `;
+  mine.forEach(p=>wireForm($('#f-'+p.id), p, async vals=>{
+    const { data, error } = await sb.rpc('rev_save_card', { k:TOKEN, p_project:p.id, p_done:vals.done, p_next:vals.next,
+      p_blocked:vals.blocked, p_milestone:vals.milestone, p_milestone_date:vals.mdate||null, p_light:vals.light });
+    if(error) throw error;
+    if(p.cards[0] && p.cards[0].revize===S.revize) p.cards[0]=data; else p.cards.unshift(data);
+    return data;
+  }));
+}
+
+/* formulář karty – společný pro vlastníka i admina */
+function ownerForm(p){
+  const cur = (p.cards[0] && p.cards[0].revize===S.revize) ? p.cards[0] : null;
+  const last = p.cards.find(c=>c.revize < S.revize) || null;
+  const v = cur || { done_text:'', next_text:'', blocked_on: last?last.blocked_on:'', milestone: last?last.milestone:'', milestone_date: last?last.milestone_date:'', light: last?last.light:'green' };
+  const decs = (p.decisions||[]).filter(d=>d.revize >= addDays(S.revize,-14));
+  return `<form class="ownbox form" id="f-${p.id}" autocomplete="off">
+    <div><h3>${esc(p.name)}</h3>${p.goal?`<div class="sub">Cíl: ${esc(p.goal)}</div>`:''}</div>
+    ${last && last.next_text ? `<div class="prev">Minule plánováno na tento týden: <b>${esc(last.next_text)}</b></div>`:''}
+    ${decs.length ? `<div class="prev">Rozhodnutí z revize: ${decs.map(d=>`<b>${esc(d.text)}</b>${d.who?' – '+esc(d.who):''}${d.due?' do '+fmtD(d.due):''}`).join('; ')}</div>`:''}
+    <label>Udělalo se <span class="hint">1–3 konkrétní věci za poslední týden. Stejný text jako minule = automaticky červená.</span>
+      <textarea name="done" rows="3" placeholder="např. Oslovila 2 dodavatele, mám první cenu">${esc(v.done_text)}</textarea></label>
+    <label>Příští týden <span class="hint">1–3 kroky, které se opravdu stihnou</span>
+      <textarea name="next" rows="2" placeholder="např. Vybrat dodavatele, objednat vzorek">${esc(v.next_text)}</textarea></label>
+    <label>Visí na <span class="hint">kdo nebo co to brzdí, klidně i Milan</span>
+      <input type="text" name="blocked" value="${esc(v.blocked_on)}" placeholder="nic / čeká na cenu od dodavatele"></label>
+    <div class="row2">
+      <label>Milník <span class="hint">nejbližší cíl</span><input type="text" name="milestone" value="${esc(v.milestone)}" placeholder="mít vybraného dodavatele"></label>
+      <label>Do kdy<input type="date" name="mdate" value="${esc(v.milestone_date||'')}"></label>
+    </div>
+    <label>Semafor
+      <div class="lights">${Object.entries(LIGHTS).map(([k,t])=>`<button type="button" data-l="${k}" class="${v.light===k?'on':''}"><i class="dot"></i><span>${t}</span></button>`).join('')}</div></label>
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="btn pri" type="submit">Uložit kartu</button>
+      <span class="saved">${cur ? 'Uloženo '+fmtTime(cur.updated_at)+(cur.auto_red?' · <span style="color:var(--red)">červená: stejný text jako minule</span>':'') : ''}</span>
+    </div>
+  </form>`;
+}
+function fmtTime(ts){ if(!ts) return ''; const d=new Date(ts); return d.toLocaleString('cs-CZ',{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+function wireForm(form, p, saveFn, after){
+  if(!form) return;
+  let light = ($('.lights button.on', form)||{}).dataset?.l || 'green';
+  $$('.lights button', form).forEach(b=>b.onclick=()=>{ light=b.dataset.l; $$('.lights button',form).forEach(x=>x.classList.toggle('on', x===b)); });
+  form.onsubmit = async e=>{
+    e.preventDefault();
+    const f = new FormData(form);
+    const vals = { done:f.get('done').trim(), next:f.get('next').trim(), blocked:f.get('blocked').trim(), milestone:f.get('milestone').trim(), mdate:f.get('mdate'), light };
+    if(!vals.done){ if(!confirm('„Udělalo se" je prázdné – karta se uloží jako červená. Uložit?')) return; }
+    const btn=$('button[type=submit]',form); btn.disabled=true; btn.textContent='Ukládám…';
+    try{
+      const card = await saveFn(vals);
+      $('.saved',form).innerHTML = 'Uloženo '+fmtTime(card.updated_at)+(card.auto_red?' · <span style="color:var(--red)">červená: stejný text jako minule nebo prázdné</span>':'');
+      if(card.auto_red){ light='red'; $$('.lights button',form).forEach(x=>x.classList.toggle('on', x.dataset.l==='red')); }
+      toast('Karta uložena');
+      if(after) after(card);
+    }catch(err){ console.error(err); toast('Nepovedlo se uložit: '+(err.message||err)); }
+    btn.disabled=false; btn.textContent='Uložit kartu';
+  };
+}
+
+/* karta jen ke čtení */
+function readCard(p, cur, prev, admin){
+  const c = (cur && cur.revize===S.revize) ? cur : null;
+  const l = c ? c.light : 'none';
+  const ownerName = admin ? (S.people.find(x=>x.id===p.owner_id)||{}).name : personName(p.owner_id);
+  const stale = c && prev && norm(c.done_text)===norm(prev.done_text);
+  const last = c || cur;
+  return `<article class="card l-${l}" data-p="${p.id}">
+    <div class="head"><div class="t"><h3>${esc(p.name)}</h3>
+      <div class="meta"><span>${ownerName?esc(ownerName):'<span style="color:var(--red)">bez vlastníka</span>'}</span>
+      ${c && c.milestone_date ? `<span>· milník ${fmtD(c.milestone_date)}</span>`:''}</div></div>
+      ${c ? `<span class="pill ${l}"><i class="dot"></i>${LIGHTS[l]}</span>` : `<span class="pill none">Nevyplněno</span>`}
+    </div>
+    ${c && c.auto_red ? `<span class="pill warn" style="align-self:flex-start">${c.done_text?'2× stejný text':'nic se neudělalo'}</span>`:''}
+    ${last ? `<dl class="fld">
+      <dt>Udělalo se</dt><dd class="${last.done_text?'':'empty'}">${esc(last.done_text||'—')}</dd>
+      <dt>Příští týden</dt><dd class="${last.next_text?'':'empty'}">${esc(last.next_text||'—')}</dd>
+      <dt>Visí na</dt><dd class="${last.blocked_on?'':'empty'}">${esc(last.blocked_on||'—')}</dd>
+      <dt>Milník</dt><dd class="${last.milestone?'':'empty'}">${esc(last.milestone||'—')}${last.milestone_date?' ('+fmtD(last.milestone_date)+')':''}</dd>
+    </dl>${!c?`<div class="sub" style="font-size:12px">Poslední zápis: revize ${fmtD(last.revize)}</div>`:''}` : `<p class="sub">Zatím žádný zápis.</p>`}
+    ${admin ? `<div class="acts"><button class="btn sm" data-edit="${p.id}">Upravit kartu</button><button class="btn sm ghost" data-hist="${p.id}">Historie</button></div>`:''}
+  </article>`;
+}
+
+/* ===================================================================== */
+/*  MÓD 2: Milan / Lukáš – přehled, revize, nastavení                     */
+/* ===================================================================== */
+async function loadAdmin(){
+  const from = addDays(S.revize, -70);
+  const [pe, pr, ca, de] = await Promise.all([
+    sb.from('rev_people').select('*').order('name'),
+    sb.from('rev_projects').select('*').order('sort').order('name'),
+    sb.from('rev_cards').select('*').gte('revize', from).order('revize',{ascending:false}),
+    sb.from('rev_decisions').select('*').gte('revize', from).order('created_at',{ascending:false}),
+  ]);
+  const err = pe.error||pr.error||ca.error||de.error; if(err) throw err;
+  S.people=pe.data; S.projects=pr.data; S.cards=ca.data; S.decisions=de.data;
+}
+function cardsOf(pid){ return S.cards.filter(c=>c.project_id===pid).sort((a,b)=>a.revize<b.revize?1:-1); }
+function curCard(pid){ return cardsOf(pid).find(c=>c.revize===S.revize)||null; }
+function prevCard(pid){ return cardsOf(pid).find(c=>c.revize<S.revize)||null; }
+function activeProjects(){ return S.projects.filter(p=>!p.archived); }
+const ORDER = { red:0, none:1, orange:2, green:3 };
+function lightOf(p){ const c=curCard(p.id); return c?c.light:'none'; }
+
+function renderAdmin(){
+  $('#app').className='wrap';
+  const me = S.adminName;
+  $('#app').innerHTML = `
+    <div class="top">
+      <span class="logo">R</span>
+      <div><h1>Revize projektů</h1><div class="sub">Příští revize <b>${fmtD(S.revize,true)}</b> v 9:00 · přihlášen ${esc(me)}</div></div>
+      <span class="spacer"></span>
+      <nav class="tabs" aria-label="Pohled">
+        <button class="tab ${S.tab==='week'?'on':''}" data-tab="week">Tento týden</button>
+        <button class="tab ${S.tab==='rev'?'on':''}" data-tab="rev">Revize</button>
+        <button class="tab ${S.tab==='set'?'on':''}" data-tab="set">Lidé a projekty</button>
+      </nav>
+      <a class="btn ghost" href="./">← Úkoly</a>
+    </div>
+    <div id="view"></div>`;
+  $$('.tab').forEach(b=>b.onclick=()=>{ S.tab=b.dataset.tab; renderAdmin(); });
+  if(S.tab==='week') renderWeek(); else if(S.tab==='rev') renderRev(); else renderSettings();
+}
+
+function renderWeek(){
+  const ps = activeProjects().slice().sort((a,b)=>ORDER[lightOf(a)]-ORDER[lightOf(b)] || a.sort-b.sort);
+  const cnt = k => ps.filter(p=>lightOf(p)===k).length;
+  const missingOwners = [...new Set(ps.filter(p=>!curCard(p.id) && p.owner_id).map(p=>(S.people.find(x=>x.id===p.owner_id)||{}).name))];
+  $('#view').innerHTML = `
+    <div class="stats">
+      <div class="stat"><b>${ps.length-cnt('none')}/${ps.length}</b><span>vyplněno</span></div>
+      <div class="stat red"><b>${cnt('red')}</b><span>stojí</span></div>
+      <div class="stat orange"><b>${cnt('orange')}</b><span>zpoždění</span></div>
+      <div class="stat green"><b>${cnt('green')}</b><span>jede</span></div>
+    </div>
+    ${missingOwners.length ? `<p class="sub" style="margin-bottom:12px">Ještě nevyplnili: <b style="color:var(--text)">${missingOwners.map(esc).join(', ')}</b>${ps.some(p=>!p.owner_id)?' · projekty bez vlastníka přiděl v záložce Lidé a projekty':''}</p>` : (ps.some(p=>!p.owner_id)?`<p class="sub" style="margin-bottom:12px">Některé projekty nemají vlastníka – přiděl je v záložce Lidé a projekty.</p>`:'')}
+    <div class="grid">${ps.map(p=>readCard(p, curCard(p.id)||cardsOf(p.id)[0], prevCard(p.id), true)).join('')}</div>`;
+  wireCardButtons();
+}
+function wireCardButtons(){
+  $$('[data-edit]').forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
+  $$('[data-hist]').forEach(b=>b.onclick=()=>openHist(b.dataset.hist));
+}
+function openModal(html){ $('#modal').innerHTML=html; $('#ov').classList.add('show'); $$('[data-close]',$('#modal')).forEach(b=>b.onclick=closeModal); }
+function closeModal(){ $('#ov').classList.remove('show'); }
+$('#ov').addEventListener('click', e=>{ if(e.target.id==='ov') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+function asOwnerShape(p){ return Object.assign({}, p, { cards: cardsOf(p.id), decisions: S.decisions.filter(d=>d.project_id===p.id) }); }
+function openEdit(pid){
+  const p = S.projects.find(x=>x.id===pid);
+  openModal(`<div class="mh"><h2>Karta za revizi ${fmtD(S.revize)}</h2><button class="btn ghost sm" data-close>Zavřít</button></div>${ownerForm(asOwnerShape(p))}`);
+  wireForm($('#f-'+pid), p, async vals=>{
+    const row = { project_id:pid, revize:S.revize, done_text:vals.done, next_text:vals.next, blocked_on:vals.blocked,
+      milestone:vals.milestone, milestone_date:vals.mdate||null, light:vals.light, author:S.adminName };
+    const { data, error } = await sb.from('rev_cards').upsert(row, { onConflict:'project_id,revize' }).select().single();
+    if(error) throw error;
+    S.cards = S.cards.filter(c=>!(c.project_id===pid && c.revize===S.revize)); S.cards.unshift(data);
+    return data;
+  }, ()=>{ setTimeout(()=>{ closeModal(); renderAdmin(); }, 400); });
+}
+function openHist(pid){
+  const p = S.projects.find(x=>x.id===pid);
+  const cs = cardsOf(pid), ds = S.decisions.filter(d=>d.project_id===pid);
+  openModal(`<div class="mh"><h2>${esc(p.name)} – historie</h2><button class="btn ghost sm" data-close>Zavřít</button></div>
+    <div class="hist">${cs.length ? cs.map(c=>`<div class="hi">
+      <div class="meta" style="margin-bottom:6px"><b style="color:var(--text)">Revize ${fmtD(c.revize)}</b><span class="pill ${c.light}"><i class="dot"></i>${LIGHTS[c.light]}</span>${c.auto_red?'<span class="pill warn">auto</span>':''}<span>${esc(c.author||'')}</span></div>
+      <dl class="fld"><dt>Udělalo se</dt><dd>${esc(c.done_text||'—')}</dd><dt>Příští týden</dt><dd>${esc(c.next_text||'—')}</dd><dt>Visí na</dt><dd>${esc(c.blocked_on||'—')}</dd><dt>Milník</dt><dd>${esc(c.milestone||'—')}${c.milestone_date?' ('+fmtD(c.milestone_date)+')':''}</dd></dl>
+      ${ds.filter(d=>d.revize===c.revize).map(d=>`<div class="decs"><span>Rozhodnutí: <b>${esc(d.text)}</b>${d.who?' – '+esc(d.who):''}${d.due?' do '+fmtD(d.due):''}${d.task_id?' · v úkolech':''}</span></div>`).join('')}
+    </div>`).join('') : '<p class="sub">Zatím žádné zápisy.</p>'}</div>`);
+}
+
+/* ---------- Revize: jen červené, oranžové a nevyplněné; ke každé jedno rozhodnutí ---------- */
+function renderRev(){
+  const ps = activeProjects().filter(p=>lightOf(p)!=='green').sort((a,b)=>ORDER[lightOf(a)]-ORDER[lightOf(b)] || a.sort-b.sort);
+  const greens = activeProjects().filter(p=>lightOf(p)==='green');
+  const decNow = S.decisions.filter(d=>d.revize===S.revize);
+  $('#view').innerHTML = `
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <p class="sub" style="flex:1;min-width:240px">Jdeme jen přes červené, oranžové a nevyplněné. U každé padne jedno rozhodnutí: kdo, co, do kdy. Zelené (${greens.length}) se nečtou nahlas.</p>
+      <button class="btn" id="sumBtn">Shrnutí po revizi</button>
+    </div>
+    ${ps.length ? ps.map(p=>revBlock(p, decNow.filter(d=>d.project_id===p.id))).join('') : `<div class="empty-state">Všechny projekty jsou zelené. Revize může skončit.</div>`}
+    ${greens.length ? `<div class="sect">Zelené – jen pro info</div><p class="sub">${greens.map(p=>esc(p.name)).join(' · ')}</p>`:''}`;
+  $('#sumBtn').onclick = openSummary;
+  $$('.decform').forEach(f=>wireDecision(f));
+  wireCardButtons();
+}
+function peopleOptions(sel){
+  return `<option value="">— kdo —</option>`+S.people.filter(x=>x.active).map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(x.name)}</option>`).join('');
+}
+function revBlock(p, decs){
+  const c = curCard(p.id), last = c || cardsOf(p.id)[0], l = c?c.light:'none';
+  const owner = S.people.find(x=>x.id===p.owner_id);
+  return `<section class="rv l-${l}">
+    <div class="head" style="display:flex;gap:10px;align-items:flex-start">
+      <div style="flex:1"><h3 style="font-size:16px">${esc(p.name)}</h3><div class="meta">${owner?esc(owner.name):'<span style="color:var(--red)">bez vlastníka</span>'}${c&&c.auto_red?' · <span style="color:var(--red)">'+(c.done_text?'2× stejný text':'nic se neudělalo')+'</span>':''}${!c&&last?' · poslední zápis '+fmtD(last.revize):''}</div></div>
+      ${c?`<span class="pill ${l}"><i class="dot"></i>${LIGHTS[l]}</span>`:`<span class="pill none">Nevyplněno</span>`}
+    </div>
+    ${last ? `<div class="rvgrid">
+      <dl class="fld"><dt>Udělalo se</dt><dd>${esc(last.done_text||'—')}</dd><dt>Příští týden</dt><dd>${esc(last.next_text||'—')}</dd></dl>
+      <dl class="fld"><dt>Visí na</dt><dd><b>${esc(last.blocked_on||'—')}</b></dd><dt>Milník</dt><dd>${esc(last.milestone||'—')}${last.milestone_date?' ('+fmtD(last.milestone_date)+')':''}</dd></dl>
+    </div>`:'<p class="sub" style="margin-top:6px">Žádný zápis.</p>'}
+    ${decs.length ? `<div class="decs" style="margin-top:10px">${decs.map(d=>`<span>✓ <b>${esc(d.text)}</b>${d.who?' – '+esc(d.who):''}${d.due?' do '+fmtD(d.due):''}${d.task_id?' · zapsáno do úkolů':''}</span>`).join('')}</div>`:''}
+    <form class="decform" data-p="${p.id}" autocomplete="off">
+      <label class="wide">Rozhodnutí – co se udělá<input type="text" name="text" placeholder="např. Tereza objedná vzorek u dodavatele B" required></label>
+      <label>Kdo<select name="who">${peopleOptions(p.owner_id)}</select></label>
+      <label>Do kdy<input type="date" name="due" value="${addDays(S.revize,7)}"></label>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label class="todo-chk"><input type="checkbox" class="chk" name="todo" checked> do úkolů</label>
+        <button class="btn pri sm" type="submit">Zapsat</button>
+      </div>
+    </form>
+    <div class="acts" style="margin-top:10px;display:flex;gap:6px"><button class="btn sm ghost" data-edit="${p.id}">Upravit kartu</button><button class="btn sm ghost" data-hist="${p.id}">Historie</button></div>
+  </section>`;
+}
+function wireDecision(form){
+  form.onsubmit = async e=>{
+    e.preventDefault();
+    const pid = form.dataset.p, p = S.projects.find(x=>x.id===pid);
+    const f = new FormData(form), text = f.get('text').trim(); if(!text) return;
+    const who = S.people.find(x=>x.id===f.get('who')) || null, due = f.get('due') || null;
+    const btn=$('button[type=submit]',form); btn.disabled=true;
+    try{
+      let task_id = null;
+      if(f.get('todo')){
+        task_id = uid();
+        const assignees = (who && who.todo_name && who.todo_name!==S.todoName) ? [who.todo_name] : [];
+        const note = `Z revize projektů ${fmtD(S.revize)} – ${p.name}.`+(who && !who.todo_name ? `\nŘeší: ${who.name}` : '')+`\n${location.origin}${location.pathname}`;
+        const { error } = await sb.from('tasks').insert({ id:task_id, owner:S.userId, owner_name:S.todoName, title:`${p.name}: ${text}`,
+          note, col:'c1', due, priority:0, assignees, subs:[], meta:{ tags:[], attachments:[], hard:false, waitOn: who && !who.todo_name ? who.name : '', remind:'' }, updated_by:S.todoName });
+        if(error){ console.error(error); toast('Úkol se nepodařilo založit: '+error.message); task_id=null; }
+      }
+      const { data, error } = await sb.from('rev_decisions').insert({ project_id:pid, revize:S.revize, text, who: who?who.name:null, due, task_id, created_by:S.adminName }).select().single();
+      if(error) throw error;
+      S.decisions.unshift(data);
+      toast(task_id ? 'Zapsáno a založeno v úkolech' : 'Rozhodnutí zapsáno');
+      renderRev();
+    }catch(err){ console.error(err); toast('Chyba: '+(err.message||err)); btn.disabled=false; }
+  };
+}
+function summaryText(){
+  const ps = activeProjects().slice().sort((a,b)=>ORDER[lightOf(a)]-ORDER[lightOf(b)] || a.sort-b.sort);
+  const L = { red:'🔴', orange:'🟠', green:'🟢', none:'⚪' };
+  let t = `Revize projektů ${fmtD(S.revize,true)}\n\n`;
+  const decs = S.decisions.filter(d=>d.revize===S.revize);
+  if(decs.length){
+    t += `ROZHODNUTÍ\n`;
+    for(const d of decs){ const p=S.projects.find(x=>x.id===d.project_id); t += `• ${p?p.name:''}: ${d.text}${d.who?' – '+d.who:''}${d.due?' do '+fmtD(d.due):''}\n`; }
+    t += `\n`;
+  }
+  const blocked = ps.map(p=>({p,c:curCard(p.id)})).filter(x=>x.c && x.c.blocked_on && !/^(nic|-|—|ne)$/i.test(x.c.blocked_on.trim()));
+  if(blocked.length){ t += `KDO NA ČEM VISÍ\n`; for(const x of blocked) t += `• ${x.p.name}: ${x.c.blocked_on}\n`; t += `\n`; }
+  t += `STAV PROJEKTŮ\n`;
+  for(const p of ps){
+    const c=curCard(p.id), o=S.people.find(x=>x.id===p.owner_id);
+    t += `${L[c?c.light:'none']} ${p.name} (${o?o.name:'bez vlastníka'})${c?(c.next_text?' – příští týden: '+c.next_text.replace(/\n+/g,'; '):''):' – nevyplněno'}\n`;
+  }
+  return t;
+}
+function openSummary(){
+  const t = summaryText();
+  openModal(`<div class="mh"><h2>Shrnutí po revizi</h2><button class="btn ghost sm" data-close>Zavřít</button></div>
+    <p class="sub" style="margin-bottom:10px">Zkopíruj a pošli týmu (e-mail, WhatsApp).</p>
+    <div class="summary" id="sumTxt">${esc(t)}</div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="copySum">Kopírovat</button>
+    <a class="btn" href="mailto:?subject=${encodeURIComponent('Revize projektů '+fmtD(S.revize))}&body=${encodeURIComponent(t)}">Otevřít v e-mailu</a></div>`);
+  $('#copySum').onclick = async ()=>{ try{ await navigator.clipboard.writeText(t); toast('Zkopírováno'); }catch(e){ toast('Kopírování nejde – označ text ručně'); } };
+}
+
+/* ---------- Lidé a projekty ---------- */
+function linkFor(person){ return location.origin + location.pathname + '?k=' + person.token; }
+function renderSettings(){
+  const pp = S.people.slice().sort((a,b)=>Number(b.active)-Number(a.active) || a.name.localeCompare(b.name,'cs'));
+  const pr = S.projects.slice().sort((a,b)=>Number(a.archived)-Number(b.archived) || a.sort-b.sort);
+  $('#view').innerHTML = `
+    <div class="sect" style="margin-top:0">Projekty</div>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="min-width:200px">Projekt</th><th style="min-width:150px">Vlastník</th><th style="min-width:200px">Cíl</th><th style="width:70px">Pořadí</th><th style="width:70px">Archiv</th></tr></thead>
+      <tbody>${pr.map(p=>`<tr data-pid="${p.id}">
+        <td><input type="text" data-f="name" value="${esc(p.name)}"></td>
+        <td><select data-f="owner_id"><option value="">— bez vlastníka —</option>${S.people.filter(x=>x.active||x.id===p.owner_id).map(x=>`<option value="${x.id}" ${x.id===p.owner_id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></td>
+        <td><input type="text" data-f="goal" value="${esc(p.goal)}"></td>
+        <td><input type="number" data-f="sort" value="${p.sort}" step="10"></td>
+        <td style="text-align:center"><input type="checkbox" class="chk" data-f="archived" ${p.archived?'checked':''}></td></tr>`).join('')}</tbody>
+    </table></div>
+    <form id="newProj" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap" autocomplete="off">
+      <input type="text" name="name" placeholder="Nový projekt" style="flex:1;min-width:200px" required>
+      <select name="owner" style="width:200px">${'<option value="">— vlastník —</option>'+S.people.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+      <button class="btn pri" type="submit">Přidat projekt</button>
+    </form>
+
+    <div class="sect">Lidé a osobní odkazy</div>
+    <p class="sub" style="margin-bottom:8px">Každý vlastník vyplňuje kartu přes svůj odkaz – bez registrace. Odkaz chodí v pondělní připomínce na uvedený e-mail. Pokud odkaz unikne, vyměň ho.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="min-width:150px">Jméno</th><th style="min-width:190px">E-mail (připomínky)</th><th>Připomínat</th><th>Aktivní</th><th style="min-width:110px">Jméno v Úkolech</th><th style="min-width:230px">Osobní odkaz</th></tr></thead>
+      <tbody>${pp.map(x=>`<tr data-uid="${x.id}">
+        <td><input type="text" data-f="name" value="${esc(x.name)}">${x.is_admin?'<div class="sub" style="font-size:11px;margin-top:2px">správce</div>':''}</td>
+        <td><input type="email" data-f="email" value="${esc(x.email||'')}"></td>
+        <td style="text-align:center"><input type="checkbox" class="chk" data-f="remind" ${x.remind?'checked':''}></td>
+        <td style="text-align:center"><input type="checkbox" class="chk" data-f="active" ${x.active?'checked':''}></td>
+        <td><input type="text" data-f="todo_name" value="${esc(x.todo_name||'')}" placeholder="—"></td>
+        <td style="white-space:nowrap"><button class="btn sm" data-copy="${x.id}">Kopírovat odkaz</button> <button class="btn sm ghost" data-rot="${x.id}" title="Vytvoří nový odkaz, starý přestane fungovat">Vyměnit</button></td></tr>`).join('')}</tbody>
+    </table></div>
+    <form id="newPerson" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap" autocomplete="off">
+      <input type="text" name="name" placeholder="Jméno (např. Matěj)" style="flex:1;min-width:160px" required>
+      <input type="email" name="email" placeholder="e-mail" style="flex:1;min-width:200px">
+      <button class="btn pri" type="submit">Přidat člověka</button>
+    </form>
+    <p class="sub" style="margin-top:18px;font-size:12px">Připomínky: v pondělí ve 14:00 dostane každý, kdo ještě nevyplnil, e-mail se svým odkazem. V úterý v 7:00 dostanou správci souhrn před revizí. „Jméno v Úkolech" propojí člověka s todomk – rozhodnutí z revize se mu pak přiřadí jako úkol.</p>`;
+
+  $$('tr[data-pid] [data-f]').forEach(inp=>inp.onchange=async ()=>{
+    const id = inp.closest('tr').dataset.pid, f = inp.dataset.f;
+    let v = inp.type==='checkbox' ? inp.checked : inp.value;
+    if(f==='owner_id' && !v) v=null; if(f==='sort') v=Number(v)||0;
+    const { error } = await sb.from('rev_projects').update({ [f]:v }).eq('id', id);
+    if(error){ toast('Chyba: '+error.message); return; }
+    Object.assign(S.projects.find(x=>x.id===id), { [f]:v }); toast('Uloženo');
+  });
+  $$('tr[data-uid] [data-f]').forEach(inp=>inp.onchange=async ()=>{
+    const id = inp.closest('tr').dataset.uid, f = inp.dataset.f;
+    let v = inp.type==='checkbox' ? inp.checked : inp.value.trim();
+    if((f==='email'||f==='todo_name') && !v) v=null;
+    const { error } = await sb.from('rev_people').update({ [f]:v }).eq('id', id);
+    if(error){ toast('Chyba: '+error.message); return; }
+    Object.assign(S.people.find(x=>x.id===id), { [f]:v }); toast('Uloženo');
+  });
+  $$('[data-copy]').forEach(b=>b.onclick=async ()=>{
+    const x=S.people.find(y=>y.id===b.dataset.copy);
+    try{ await navigator.clipboard.writeText(linkFor(x)); toast('Odkaz pro '+x.name+' zkopírován'); }catch(e){ prompt('Odkaz:', linkFor(x)); }
+  });
+  $$('[data-rot]').forEach(b=>b.onclick=async ()=>{
+    const x=S.people.find(y=>y.id===b.dataset.rot);
+    if(!confirm(`Vyměnit odkaz pro ${x.name}? Starý přestane fungovat.`)) return;
+    const tok = [...crypto.getRandomValues(new Uint8Array(18))].map(n=>n.toString(16).padStart(2,'0')).join('');
+    const { error } = await sb.from('rev_people').update({ token:tok }).eq('id', x.id);
+    if(error){ toast('Chyba: '+error.message); return; }
+    x.token=tok; toast('Nový odkaz vytvořen – zkopíruj ho');
+  });
+  $('#newProj').onsubmit = async e=>{
+    e.preventDefault(); const f=new FormData(e.target);
+    const maxSort = Math.max(0, ...S.projects.map(p=>p.sort));
+    const { data, error } = await sb.from('rev_projects').insert({ name:f.get('name').trim(), owner_id:f.get('owner')||null, sort:maxSort+10 }).select().single();
+    if(error){ toast('Chyba: '+error.message); return; }
+    S.projects.push(data); toast('Projekt přidán'); renderSettings();
+  };
+  $('#newPerson').onsubmit = async e=>{
+    e.preventDefault(); const f=new FormData(e.target);
+    const { data, error } = await sb.from('rev_people').insert({ name:f.get('name').trim(), email:(f.get('email')||'').trim()||null }).select().single();
+    if(error){ toast('Chyba: '+error.message); return; }
+    S.people.push(data); toast('Přidáno – zkopíruj mu odkaz'); renderSettings();
+  };
+}
+
+/* ---------- přihlášení (stejný účet jako v todomk) ---------- */
+function renderLogin(msg){
+  $('#app').className='wrap';
+  $('#app').innerHTML = `<form class="login form" id="login" autocomplete="on">
+    <div><h2>Revize projektů</h2><p>Přihlas se stejně jako do Úkolů (todomk). Vlastníci projektů používají svůj osobní odkaz z e-mailu.</p></div>
+    <label>E-mail<input type="email" name="email" autocomplete="username" required></label>
+    <label>Heslo<input type="password" name="password" autocomplete="current-password" required></label>
+    <button class="btn pri" type="submit">Přihlásit</button>
+    <div class="err" id="lerr">${esc(msg||'')}</div>
+  </form>`;
+  $('#login').onsubmit = async e=>{
+    e.preventDefault(); const f=new FormData(e.target);
+    $('#lerr').textContent='Přihlašuji…';
+    const { error } = await sb.auth.signInWithPassword({ email:f.get('email').trim(), password:f.get('password') });
+    if(error){ $('#lerr').textContent='Chyba: '+error.message; return; }
+    boot();
+  };
+}
+
+async function boot(){
+  if(TOKEN){ await loadToken(); return; }
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ renderLogin(); return; }
+  const email = (session.user.email||'').toLowerCase();
+  S.userId = session.user.id;
+  try{
+    await loadAdmin();
+    const meP = S.people.find(x=>(x.email||'').toLowerCase()===email && x.is_admin);
+    if(!meP){ renderLogin('Tenhle účet nemá přístup ke správě revize.'); await sb.auth.signOut(); return; }
+    S.mode='admin'; S.adminName = meP.name; S.todoName = meP.todo_name || email.split('@')[0];
+    renderAdmin();
+  }catch(err){ console.error(err); $('#app').innerHTML = `<div class="login"><h2>Chyba načítání</h2><p>${esc(err.message||err)}</p></div>`; }
+}
+boot();
+</script>
+</body>
+</html>
