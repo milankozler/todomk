@@ -789,6 +789,13 @@ async function cloudPull(){
 
 /* ---------------- Sdílené úkoly + profily uživatelů ---------------- */
 let ME=null, PEOPLE=[], TASK_BASE={}, PENDING_DEL=[], _tpT=null;
+/* cizí úkol = založil ho někdo jiný a mně je přiřazený; sloupec na mé nástěnce si pamatuje meta.cols[moje jméno] */
+function isForeignTask(t){ return !!(ME && t.owner && t.owner!==ME.id); }
+function colsWithMine(t){
+  const c = Object.assign({}, t.cols||{});
+  if(ME && isForeignTask(t)){ if(t.col && t.col!=='__assigned') c[ME.name]=t.col; else delete c[ME.name]; }
+  return c;
+}
 
 function taskToRow(t){
   return {
@@ -796,7 +803,7 @@ function taskToRow(t){
     owner: t.owner || (ME && ME.id),
     owner_name: t.ownerName || (ME && ME.name),
     title: t.title||'', note: t.note||'',
-    col: (t.col==='__assigned' ? (t.realCol||'') : (t.col||'')),
+    col: (isForeignTask(t) || t.col==='__assigned') ? (t.realCol||'') : (t.col||''),
     due: t.due || null,
     priority: t.priority||0,
     done: !!t.done,
@@ -804,15 +811,16 @@ function taskToRow(t){
     assignees: t.assignees||[],
     subs: t.subs||[],
     meta: { tags: t.tags||[], attachments: t.attachments||[], subsOpen: !!t.subsOpen,
-            hard: !!t.hard, waitOn: t.waitOn||'', remind: t.remind||'', returned: !!t.returned },
+            hard: !!t.hard, waitOn: t.waitOn||'', remind: t.remind||'', returned: !!t.returned, cols: colsWithMine(t) },
     updated_by: ME ? ME.name : null
   };
 }
 function rowToTask(r){
   const mine = ME && r.owner===ME.id, m = r.meta||{};
+  const myCol = (!mine && ME && m.cols && m.cols[ME.name] && state.columns.some(c=>c.id===m.cols[ME.name])) ? m.cols[ME.name] : '';
   return {
     id:r.id, title:r.title||'', note:r.note||'',
-    col: mine ? (r.col||'') : '__assigned', realCol: r.col||'',
+    col: mine ? (r.col||'') : (myCol || '__assigned'), realCol: r.col||'', cols: m.cols||{},
     due: r.due||'', priority: r.priority||0, done: !!r.done,
     doneAt: r.done_at ? Date.parse(r.done_at) : null,
     assignees: r.assignees||[], subs: r.subs||[],
@@ -847,7 +855,7 @@ async function loadTasks(){
     state.tasks = (data||[]).map(rowToTask);
     await loadCommentCounts();
     const ids = new Set(state.columns.map(c=>c.id));
-    for(const t of state.tasks){ if(t.col!=='__assigned' && !ids.has(t.col)) t.col = state.columns[0] ? state.columns[0].id : ''; }
+    for(const t of state.tasks){ if(t.col!=='__assigned' && !ids.has(t.col)) t.col = isForeignTask(t) ? '__assigned' : (state.columns[0] ? state.columns[0].id : ''); }
     snapshotTasks();
     if(resurface()) pushTasksSoon();
   }catch(e){ console.warn(e); setCloud('⚠ úkoly se nepodařilo načíst'); }
@@ -879,7 +887,7 @@ async function pushTasks(){
     if(mine.length){ const { error } = await sb.from('tasks').upsert(mine); if(error) throw error; }
     for(const row of others){
       const { error } = await sb.from('tasks')
-        .update({ done:row.done, done_at:row.done_at, subs:row.subs, note:row.note, updated_by:row.updated_by })
+        .update({ done:row.done, done_at:row.done_at, subs:row.subs, note:row.note, meta:row.meta, updated_by:row.updated_by })
         .eq('id', row.id);
       if(error) console.warn(error);
     }
@@ -1040,14 +1048,14 @@ function taskPeople(t){
   for(const id of t.tags){ const tg=tagById(id); if(tg && tg.type==='person') s.add(tg.name); }
   return [...s];
 }
-function isOpenOwn(t){ return !t.done && t.col!=='__assigned'; }
+function isOpenOwn(t){ return !t.done && t.col!=='__assigned' && !isForeignTask(t); }
 
 /* úkoly z „Čekám", kterým nastal den připomenutí, se samy vrátí do sloupce Dnes */
 function resurface(){
   const tc=todayCol(); if(!tc) return false;
   const today=todayISO(); let changed=false;
   for(const t of state.tasks){
-    if(t.done || t.col==='__assigned' || !t.remind || t.remind>today) continue;
+    if(t.done || t.col==='__assigned' || isForeignTask(t) || !t.remind || t.remind>today) continue;
     if(colRole(colById(t.col))!=='waiting') continue;
     t.col=tc.id; t.returned=true; t.remind=''; changed=true;
   }
@@ -1583,6 +1591,7 @@ function setupDrop(list, colId){
     const after = getAfter(list, e.clientY);
     clearInd();
     const task = state.tasks.find(t=>t.id===id); if(!task) return;
+    if(colId==='__assigned' && !isForeignTask(task)){ render(); return; } // vlastní úkol do „Přiřazené mně" nepatří
     task.col = colId;
     // reorder: rebuild order of tasks within state.tasks
     state.tasks = state.tasks.filter(t=>t.id!==id);
@@ -1630,7 +1639,7 @@ function autoGrow(el){ if(!el) return; if(CSS.supports && CSS.supports('field-si
 function openTaskModal(t, isNew){
   openTaskId = t.id; modalDirty=false;
   modalBox.className='modal';
-  const isForeign = !isNew && t.col==='__assigned';
+  const isForeign = !isNew && isForeignTask(t);
   modalBox.innerHTML = `
     <div class="d-head">
       <span class="d-crumb" id="m_crumb"></span>
@@ -1641,7 +1650,7 @@ function openTaskModal(t, isNew){
     <div class="d-body" id="m_body">
       <textarea class="d-title" id="m_title" rows="1" placeholder="Co je potřeba udělat?" aria-label="Název úkolu">${esc(t.title)}</textarea>
       <div class="props">
-        ${isForeign?'':`<span class="pl">Sloupec</span><div class="seg" id="m_col"></div>`}
+        <span class="pl">Sloupec</span><div class="seg" id="m_col"></div>
         <span class="pl">Termín</span>
         <div>
           <div class="seg">
@@ -1712,15 +1721,16 @@ function openTaskModal(t, isNew){
 
   const drawCrumb=()=>{
     const pj=[...picked].map(tagById).find(x=>x&&x.type==='project');
-    const c = colById(col) || (isForeign ? {name:'Přiřazené mně · od '+(t.ownerName||'?')} : null);
+    const c = colById(col) || ((isForeign || col==='__assigned') ? {name:'Přiřazené mně · od '+(t.ownerName||'?')} : null);
     $('m_crumb').innerHTML = (pj?`<i style="background:${pj.color}"></i>${esc(pj.name)}`:'Bez projektu')+(c?' <span style="opacity:.5">/</span> '+esc(c.name):'');
   };
   const showWait=()=>{ $('m_wait').style.display = (colRole(colById(col))==='waiting' || $('m_waiton').value.trim() || $('m_remind').value) ? 'flex' : 'none'; };
 
-  if(!isForeign){
+  {
     const drawCols=()=>{
       const box=$('m_col'); box.innerHTML='';
-      for(const c of state.columns){
+      const opts = isForeign ? [{id:'__assigned', name:'Přiřazené mně'}, ...state.columns] : state.columns;
+      for(const c of opts){
         const b=document.createElement('button'); b.type='button'; b.className='sbtn'+(c.id===col?' on':''); b.textContent=c.name;
         b.onclick=()=>{ col=c.id; drawCols(); drawCrumb(); showWait(); };
         box.appendChild(b);
@@ -1860,7 +1870,7 @@ function openTaskModal(t, isNew){
     const title = $('m_title').value.trim();
     if(!title){ alert('Zadej název úkolu.'); $('m_title').focus(); return; }
     t.title = title;
-    if(!isForeign && t.col!==col){ t.col = col; t.returned = false; }
+    if(t.col!==col){ t.col = col; if(!isForeign) t.returned = false; }
     t.due   = due;
     t.hard  = !!(due && hard);
     t.note  = $('m_note').value;
