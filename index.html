@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kb.css">
 <style>
 /* ================= DESIGN TOKENS ================= */
 :root{
@@ -47,6 +48,7 @@ kbd{font-family:var(--mono); font-size:11px; color:var(--muted); border:1px soli
 .nav:hover{background:var(--hover); color:var(--text);}
 .nav.on{background:var(--hover); color:var(--text); font-weight:500;}
 .nav .count{margin-left:auto; font-size:12px; color:var(--muted); font-family:var(--mono);}
+.nav .count.hot{color:var(--accent-ink); background:var(--accent); border-radius:999px; padding:0 7px; font-weight:600;}
 .nav .dot{width:8px; height:8px; border-radius:50%; flex:none;}
 .nav .av{width:20px; height:20px; font-size:9px; box-shadow:none;}
 .sec{font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:18px 10px 6px;}
@@ -442,7 +444,7 @@ body.dark .note{background:#24221A; border-color:#3F3A22; color:#EDEEF0;}
   <button class="nav on" id="navBoard" type="button"><svg class="ico"><use href="#i-board"/></svg>Nástěnka<span class="count" id="navBoardN"></span></button>
   <button class="nav" id="navFocus" type="button"><svg class="ico"><use href="#i-sun"/></svg>Dnes – fokus<span class="count" id="navFocusN"></span></button>
   <button class="nav" id="dashBtn" type="button"><svg class="ico"><use href="#i-chart"/></svg>Přehled</button>
-  <button class="nav" id="notesBtn" type="button"><svg class="ico"><use href="#i-note"/></svg>Poznámky</button>
+  <button class="nav" id="notesBtn" type="button" title="Znalosti – poznámky, schůzky, postupy (klávesa Z)"><svg class="ico"><use href="#i-book"/></svg>Znalosti<span class="count" id="navKbN"></span></button>
   <button class="nav" id="manualBtn" type="button"><svg class="ico"><use href="#i-book"/></svg>Manuál na Milana</button>
   <a class="nav" id="revizeLink" href="revize.html" style="text-decoration:none"><svg class="ico"><use href="#i-chart"/></svg>Revize projektů</a>
   <div id="frogChip" title="Dnešní žába – klikni pro otevření manuálu"><small>Dnešní žába</small><span id="frogChipTxt"></span></div>
@@ -631,6 +633,9 @@ body.dark .note{background:#24221A; border-color:#3F3A22; color:#EDEEF0;}
 <div id="imgview" onclick="this.classList.remove('show')"><img id="imgviewImg" alt="Náhled přílohy"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="kb.js"></script>
 <script>
 'use strict';
 
@@ -950,7 +955,10 @@ async function applyAuth(session){
     await migrateTasksToTable(blobTasks);
     await loadTasks();
     render();
+    bootKB();
   } else {
+    if(window.KB && KB.isOpen()) KB.close();
+    KB_READY = false;
     CLOUD_ROW_ID = null; ME = null;
     if(lo) lo.style.display='none';
     showLogin();
@@ -1063,6 +1071,7 @@ function resurface(){
 }
 
 function render(){
+  if(window.KB && KB_READY && KB.isOpen()) KB.refreshTasks();
   applyTheme();
   renderHeader();
   renderBoard();
@@ -1625,7 +1634,7 @@ let modalDirty = false;
 // detail úkolu se nezavírá klikem vedle ani Escapem (neuložené změny by se ztratily) – jen tlačítky
 overlay.onclick = e=>{ if(e.target===overlay && !openTaskId) closeModal(); };
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !openTaskId && overlay.classList.contains('show')) closeModal(); });
-function closeModal(){ overlay.classList.remove('show'); modalBox.innerHTML=''; modalBox.className='modal'; openTaskId=null; modalDirty=false; document.removeEventListener('paste', pasteHandler); }
+function closeModal(){ if(KB_TASK_CB && KB_TASK_CB.id===openTaskId){ const cb=KB_TASK_CB; KB_TASK_CB=null; cb.res(state.tasks.find(x=>x.id===cb.id)||null); } overlay.classList.remove('show'); modalBox.innerHTML=''; modalBox.className='modal'; openTaskId=null; modalDirty=false; document.removeEventListener('paste', pasteHandler); }
 
 function openTask(id){
   const t = state.tasks.find(x=>x.id===id); if(!t) return;
@@ -1681,6 +1690,7 @@ function openTaskModal(t, isNew){
         <label class="bt" for="m_note">Poznámka</label>
         <textarea class="note-area" id="m_note" placeholder="Zadání, kontext, odkazy…">${esc(t.note||'')}</textarea>
       </div>
+      ${isNew?'':'<div class="blk" id="m_kb" hidden></div>'}
       <div class="blk">
         <div class="bt">Podúkoly <span class="mono" style="font-weight:400;color:var(--muted);font-size:12px" id="m_subn"></span><span class="bar" id="m_subbar"><i style="width:0;background:var(--ok)"></i></span></div>
         <div id="m_subs"></div>
@@ -1884,6 +1894,7 @@ function openTaskModal(t, isNew){
     if(t.remind && t.remind>todayISO()) t.returned=false;
     if(t.subsOpen===undefined) t.subsOpen = false;
     if(isNew) state.tasks.push(t);
+    if(KB_TASK_CB && KB_TASK_CB.id===t.id){ const cb=KB_TASK_CB; KB_TASK_CB=null; cb.res(t); }
     save(); closeModal(); render();
   };
   const doCancel = ()=>{ if(modalDirty && !confirm('Zahodit neuložené změny?')) return; closeModal(); };
@@ -1896,6 +1907,7 @@ function openTaskModal(t, isNew){
     t.done=!t.done; t.doneAt=t.done?Date.now():null; if(t.done) t.returned=false; save(); closeModal(); render();
   };
   if(!isNew) setupComments(t);
+  if(!isNew && KB_READY) KB.renderTaskLinks(t.id, $('m_kb'), ()=>{ if(modalDirty && !confirm('Zahodit neuložené změny v úkolu?')) return false; closeModal(); render(); });
   const _delBtn = $('m_del');
   if(isNew || isForeign){ _delBtn.style.display='none'; }
   else _delBtn.onclick = ()=>{
@@ -2369,6 +2381,50 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.getEleme
 let _resizeT=null;
 window.addEventListener('resize', ()=>{ clearTimeout(_resizeT); _resizeT=setTimeout(()=>{ try{ renderBoard(); }catch(e){} }, 150); });
 
+/* ---------------- Znalosti (sdílená znalostní báze, kb.js) ---------------- */
+var KB_READY = false, KB_TASK_CB = null;
+function kbTask(t){
+  return t ? {id:t.id, title:t.title, done:!!t.done, due:t.due||'', hard:!!t.hard, assignees:t.assignees||[], ownerName:t.ownerName||(ME?ME.name:'')} : null;
+}
+function bootKB(){
+  if(!window.KB || !sb || !ME) return;
+  KB.boot({
+    api: KB.supabaseApi(sb, ME),
+    me: {id:ME.id, name:ME.name},
+    people: PEOPLE.map(p=>p.name),
+    host: {
+      personColor,
+      getTask: id=>kbTask(state.tasks.find(x=>x.id===id)),
+      toggleTask: (id, done)=>{ const t=state.tasks.find(x=>x.id===id); if(!t) return; t.done=done; t.doneAt=done?Date.now():null; if(done) t.returned=false; save(); render(); },
+      openTask: id=>{ if(state.tasks.some(x=>x.id===id)) openTask(id); else KB.ui.toast('Tento úkol nevidíš – patří někomu jinému'); },
+      createTask: ({title, noteTitle})=>new Promise(res=>{
+        const c=inboxCol(); if(!c){ res(null); return; }
+        const t={id:uid(), title:title||'', col:c.id, tags:[], due:'', hard:false, note: noteTitle ? 'Z poznámky: '+noteTitle : '', done:false, attachments:[], created:Date.now()};
+        KB_TASK_CB={id:t.id, res};
+        openTaskModal(t, true);
+      }),
+      linkFor: id=>location.origin+location.pathname+'#kb/'+id,
+      onRoute: id=>{ try{ history.replaceState(null, '', id ? '#kb/'+id : '#kb'); }catch(e){} },
+      onClose: ()=>{ try{ history.replaceState(null, '', location.pathname); }catch(e){} render(); },
+      onUnread: n=>{ const el=document.getElementById('navKbN'); if(el){ el.textContent = n ? String(n) : ''; el.classList.toggle('hot', n>0); el.title = n ? n+' poznámek s novými změnami nebo komentáři' : ''; } },
+      isBlocked: ()=>overlay.classList.contains('show')
+    }
+  });
+  KB_READY = true;
+  // jednorázový převod starých poznámek (sticky notes) do Znalostí – původní data zůstávají v záloze
+  const legacy = Array.isArray(state.notes) ? state.notes.filter(n=>(n.title||'').trim() || (n.html||'').replace(/<[^>]*>/g,'').trim()) : [];
+  if(!state.kbMigrated){
+    if(!legacy.length){ state.kbMigrated=true; save(); }
+    else KB.importLegacy(legacy).then(cnt=>{ state.kbMigrated=true; save(); if(cnt) setCloud('☁ '+cnt+' starých poznámek převedeno do Znalostí'); }).catch(e=>console.warn('Znalosti: převod poznámek počká na databázi', e));
+  }
+  const m = location.hash.match(/^#kb(?:\/([0-9a-f-]{36}))?$/);
+  if(m) openKB(m[1] ? {noteId:m[1]} : {});
+}
+function openKB(opts){ closeSide(); if(KB_READY) KB.open(opts||{}); }
+document.getElementById('search').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && KB_READY && e.target.value.trim()){ e.preventDefault(); openKB({q:e.target.value.trim()}); }
+});
+
 /* ---------------- Poznámky (sticky notes) ---------------- */
 let _notesT=null;
 function saveNotesSoon(){ clearTimeout(_notesT); _notesT=setTimeout(()=>save(), 400); }
@@ -2408,7 +2464,7 @@ function renderNotes(){
     body.appendChild(card);
   }
 }
-document.getElementById('notesBtn').onclick = openNotes;
+document.getElementById('notesBtn').onclick = ()=>{ if(KB_READY) openKB(); else openNotes(); };
 document.getElementById('notesClose').onclick = ()=> document.getElementById('notes').classList.remove('show');
 document.getElementById('notesArch').onchange = renderNotes;
 document.getElementById('notesNew').onclick = ()=>{
@@ -2455,12 +2511,14 @@ document.getElementById('sideBtn').onclick = e=>{ e.stopPropagation(); document.
 document.getElementById('main').addEventListener('click', ()=>closeSide());
 ['dashBtn','notesBtn','manualBtn'].forEach(id=>document.getElementById(id).addEventListener('click', closeSide));
 document.addEventListener('keydown', e=>{
+  if(window.KB && KB.isOpen()) return; // Znalosti mají vlastní zkratky
   const typing = e.target.closest('input,textarea,select,[contenteditable=true]');
   if(e.key==='Escape' && document.getElementById('focusScr').classList.contains('show') && !overlay.classList.contains('show')) closeFocus();
   if(typing || e.ctrlKey || e.metaKey || e.altKey || overlay.classList.contains('show')) return;
   if(e.key==='/'){ e.preventDefault(); document.getElementById('search').focus(); }
   else if(e.key==='n'){ e.preventDefault(); document.getElementById('newTaskBtn').click(); }
   else if(e.key==='d'){ e.preventDefault(); document.getElementById('focusScr').classList.contains('show') ? closeFocus() : openFocus(); }
+  else if(e.key==='z' && KB_READY){ e.preventDefault(); openKB(); }
 });
 setInterval(()=>{ if(resurface()){ save(); render(); } }, 10*60*1000);
 
