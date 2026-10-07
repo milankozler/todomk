@@ -143,6 +143,13 @@ kbd{font-family:var(--mono); font-size:11px; color:var(--muted); border:1px soli
 .tag.today{background:var(--today-bg); color:var(--today-tx);}
 .tag.ctx{background:var(--hover); color:var(--tx2);}
 .tag.from{background:var(--hover); color:var(--tx2);}
+.stb{display:inline-flex; align-items:center; gap:4px; align-self:flex-start; max-width:100%; padding:2px 8px; border-radius:5px; font-size:11.5px; line-height:1.45; background:var(--hover); color:var(--tx2);}
+.stb b{font-weight:600;}
+.stb.new{background:transparent; border:1px dashed var(--line2); color:var(--muted);}
+.stb.work{background:var(--hover); color:var(--tx2);}
+.stb.done{background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--text);}
+.stb.hot, .stb.back{background:var(--today-bg); color:var(--today-tx);}
+.task > .take{flex:none; align-self:center; margin-left:6px;}
 .soft{color:var(--muted);}
 .soft.past{opacity:.75;}
 .avs{margin-left:auto; display:inline-flex;}
@@ -796,6 +803,61 @@ async function cloudPull(){
 let ME=null, PEOPLE=[], TASK_BASE={}, PENDING_DEL=[], _tpT=null;
 /* cizí úkol = založil ho někdo jiný a mně je přiřazený; sloupec na mé nástěnce si pamatuje meta.cols[moje jméno] */
 function isForeignTask(t){ return !!(ME && t.owner && t.owner!==ME.id); }
+/* Stav u řešitele: meta.st[jméno] = {s:'prevzato'|'hotovo', c:'název jeho sloupce', at:ms}. Zapisuje jen řešitel sám.
+   Autor: meta.rv = kdy naposledy přesunul odevzdaný úkol k sobě do Dnes, meta.back = kdy ho vrátil k dopracování. */
+function stateOf(t, name){
+  const s = (t.st||{})[name];
+  if(!s || !s.s) return {s:'novy'};
+  if(s.s==='hotovo' && (t.back||0) > (s.at||0)) return {s:'vraceno', c:s.c||'', at:s.at};
+  return s;
+}
+function delegatees(t){ return (t.assignees||[]).filter(n=>!ME || n!==ME.name); }
+function isHandedIn(t){ return !!t && !isForeignTask(t) && !t.done && delegatees(t).some(n=>stateOf(t,n).s==='hotovo'); }
+function setMyState(t, s, at){
+  if(!ME) return;
+  t.st = Object.assign({}, t.st||{});
+  if(s==='novy'){ delete t.st[ME.name]; return; }
+  const c = t.col==='__assigned' ? '' : ((colById(t.col)||{}).name||'');
+  t.st[ME.name] = {s, c, at: at||Date.now()};
+}
+/* cizí úkol se přesunul na mé nástěnce → aktualizovat můj stav (odevzdaný zůstává odevzdaný) */
+function noteMyMove(t){
+  if(!isForeignTask(t)) return;
+  if(t.realDone) return;
+  if(t.col==='__assigned'){ t.done=false; setMyState(t,'novy'); return; }
+  const cur = stateOf(t, ME.name);
+  const intoDoneCol = isDoneColName((colById(t.col)||{}).name);
+  if(intoDoneCol){ t.done=true; setMyState(t,'hotovo', cur.s==='hotovo'?cur.at:undefined); return; }   // přetažení do „Hotovo" = odevzdat
+  if(cur.s==='hotovo' && isDoneColName(cur.c)){ t.done=false; setMyState(t,'prevzato'); return; } // vytaženo z „Hotovo" = vzít zpět
+  if(cur.s==='hotovo') setMyState(t,'hotovo',cur.at); else setMyState(t,'prevzato');
+}
+function isDoneColName(n){ return /^\s*(hotovo|done|dokončeno)\s*$/i.test(n||''); }
+/* jediné místo, kde se mění „hotovo": u cizího úkolu = odevzdat autorovi / vzít zpět, zavírá vždy autor */
+function setDone(t, val){
+  val = !!val;
+  if(isForeignTask(t)){
+    if(t.realDone) return;
+    t.done = val;
+    if(val) setMyState(t,'hotovo');
+    else setMyState(t, t.col==='__assigned' ? 'novy' : 'prevzato');
+    return;
+  }
+  t.done = val; t.doneAt = val ? Date.now() : null;
+  if(val) t.returned = false;
+}
+/* odevzdané úkoly se autorovi jednou přesunou do sloupce Dnes */
+function surfaceHandedIn(){
+  const tc=todayCol()||inboxCol(); if(!tc) return false;
+  let changed=false;
+  for(const t of state.tasks){
+    if(isForeignTask(t) || t.done) continue;
+    let last=0;
+    for(const n of delegatees(t)){ const s=stateOf(t,n); if(s.s==='hotovo' && (s.at||0)>last) last=s.at||0; }
+    if(last && last>(t.rv||0)){ if(t.col!==tc.id) t.pc=t.col; t.col=tc.id; t.rv=last; changed=true; }
+  }
+  return changed;
+}
+function personLabel(n){ const s=String(n||''); return s.charAt(0).toUpperCase()+s.slice(1); }
 function colsWithMine(t){
   const c = Object.assign({}, t.cols||{});
   if(ME && isForeignTask(t)){ if(t.col && t.col!=='__assigned') c[ME.name]=t.col; else delete c[ME.name]; }
@@ -811,22 +873,26 @@ function taskToRow(t){
     col: (isForeignTask(t) || t.col==='__assigned') ? (t.realCol||'') : (t.col||''),
     due: t.due || null,
     priority: t.priority||0,
-    done: !!t.done,
+    done: isForeignTask(t) ? !!t.realDone : !!t.done,
     done_at: t.doneAt ? new Date(t.doneAt).toISOString() : null,
     assignees: t.assignees||[],
     subs: t.subs||[],
     meta: { tags: t.tags||[], attachments: t.attachments||[], subsOpen: !!t.subsOpen,
-            hard: !!t.hard, waitOn: t.waitOn||'', remind: t.remind||'', returned: !!t.returned, cols: colsWithMine(t) },
+            hard: !!t.hard, waitOn: t.waitOn||'', remind: t.remind||'', returned: !!t.returned, cols: colsWithMine(t),
+            st: t.st||{}, rv: t.rv||0, back: t.back||0, pc: t.pc||'' },
     updated_by: ME ? ME.name : null
   };
 }
 function rowToTask(r){
   const mine = ME && r.owner===ME.id, m = r.meta||{};
   const myCol = (!mine && ME && m.cols && m.cols[ME.name] && state.columns.some(c=>c.id===m.cols[ME.name])) ? m.cols[ME.name] : '';
+  const st = (m.st && typeof m.st==='object') ? m.st : {};
+  const handedIn = !mine && ME && stateOf({st, back:m.back||0}, ME.name).s==='hotovo';
   return {
     id:r.id, title:r.title||'', note:r.note||'',
     col: mine ? (r.col||'') : (myCol || '__assigned'), realCol: r.col||'', cols: m.cols||{},
-    due: r.due||'', priority: r.priority||0, done: !!r.done,
+    st, rv: m.rv||0, back: m.back||0, pc: m.pc||'', realDone: !!r.done,
+    due: r.due||'', priority: r.priority||0, done: !!r.done || !!handedIn,
     doneAt: r.done_at ? Date.parse(r.done_at) : null,
     assignees: r.assignees||[], subs: r.subs||[],
     tags: m.tags||[], attachments: m.attachments||[], subsOpen: !!m.subsOpen,
@@ -862,7 +928,8 @@ async function loadTasks(){
     const ids = new Set(state.columns.map(c=>c.id));
     for(const t of state.tasks){ if(t.col!=='__assigned' && !ids.has(t.col)) t.col = isForeignTask(t) ? '__assigned' : (state.columns[0] ? state.columns[0].id : ''); }
     snapshotTasks();
-    if(resurface()) pushTasksSoon();
+    const r1 = resurface(), r2 = surfaceHandedIn();
+    if(r1 || r2) pushTasksSoon();
   }catch(e){ console.warn(e); setCloud('⚠ úkoly se nepodařilo načíst'); }
 }
 async function migrateTasksToTable(blobTasks){
@@ -1190,7 +1257,8 @@ function setupLaneDrop(lanes){
 /* řazení uvnitř sloupce: priorita → pevný termín → měkký termín → nejkratší */
 function taskRank(a,b){
   if(a.done!==b.done) return a.done ? 1 : -1;
-  if(!!a.returned!==!!b.returned) return a.returned ? -1 : 1;
+  const ra=!!a.returned||isHandedIn(a), rb=!!b.returned||isHandedIn(b);
+  if(ra!==rb) return ra ? -1 : 1;
   const pa=a.priority||0, pb=b.priority||0; if(pa!==pb) return pb-pa;
   const ha=a.hard&&a.due ? a.due : '9999', hb=b.hard&&b.due ? b.due : '9999'; if(ha!==hb) return ha.localeCompare(hb);
   const sa=a.due||'9999', sb2=b.due||'9999'; if(sa!==sb2) return sa.localeCompare(sb2);
@@ -1422,14 +1490,44 @@ function buildQuickAdd(col){
   return addWrap;
 }
 
+/* ---------- stav u řešitele (štítky na kartě) ---------- */
+const ST_LBL = {novy:'nepřevzato', prevzato:'převzato', hotovo:'hotovo', vraceno:'vráceno k dopracování'};
+function statusBadges(t){
+  const out=[];
+  const mk=(cls, html, title)=>{ const w=document.createElement('span'); w.className='stb '+cls; w.innerHTML=html; if(title) w.title=title; out.push(w); };
+  if(isForeignTask(t)){
+    if(t.realDone) return out;
+    const s=stateOf(t, ME.name);
+    if(s.s==='hotovo') mk('done', 'Odevzdáno · čeká na kontrolu u <b>'+esc(personLabel(t.ownerName))+'</b>');
+    else if(s.s==='vraceno') mk('hot', '<b>'+esc(personLabel(t.ownerName))+'</b> vrátil k dopracování');
+    return out;
+  }
+  if(t.done) return out;
+  const ds=delegatees(t); if(!ds.length) return out;
+  if(isHandedIn(t)) mk('hot', 'Ke kontrole – uzavíráš ty');
+  for(const n of ds){
+    const s=stateOf(t,n);
+    const what = s.s==='prevzato' ? (s.c ? esc(s.c) : 'převzato') : ST_LBL[s.s];
+    mk(s.s==='novy'?'new':(s.s==='hotovo'?'done':(s.s==='vraceno'?'back':'work')),
+       '<b>'+esc(personLabel(n))+':</b> '+what,
+       s.at ? 'Změna '+new Date(s.at).toLocaleString('cs-CZ',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Zatím si úkol nepřesunul do svého sloupce');
+  }
+  return out;
+}
+function takeOver(t){
+  const ic=inboxCol(); if(!ic){ alert('Nejdřív si přidej sloupec.'); return; }
+  t.col=ic.id; noteMyMove(t); save(); render();
+}
+
 /* ---------- karta úkolu ---------- */
 function renderTask(t){
   const row = document.createElement('div');
-  row.className='task'+(t.done?' done':'')+(t.returned?' returned':''); row.draggable=true; row.dataset.id=t.id; row.tabIndex=0;
+  const handed = isHandedIn(t);
+  row.className='task'+(t.done?' done':'')+((t.returned||handed)?' returned':''); row.draggable=true; row.dataset.id=t.id; row.tabIndex=0;
   row.setAttribute('role','button'); row.setAttribute('aria-label', t.title);
 
   const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=t.done; cb.setAttribute('aria-label','Hotovo');
-  cb.onclick = e=>{ e.stopPropagation(); t.done=cb.checked; t.doneAt = cb.checked ? Date.now() : null; if(cb.checked) t.returned=false; save(); render(); };
+  cb.onclick = e=>{ e.stopPropagation(); setDone(t, cb.checked); save(); render(); };
 
   const body=document.createElement('div'); body.className='tbody';
   const top=document.createElement('div'); top.className='trow';
@@ -1438,6 +1536,7 @@ function renderTask(t){
   if(t.priority){ const p=document.createElement('span'); p.className='prio'; p.textContent='!'.repeat(t.priority); p.title='Priorita '+t.priority; top.appendChild(p); }
   body.appendChild(top);
 
+  body.append(...statusBadges(t));
   if(t.returned){
     const w=document.createElement('span'); w.className='wait hot';
     w.innerHTML='Vrátilo se z Čekám'+(t.waitOn?' · čekal jsi na <b>'+esc(t.waitOn)+'</b>':'');
@@ -1490,7 +1589,13 @@ function renderTask(t){
   if(meta.childNodes.length) body.appendChild(meta);
 
   row.append(cb, body);
-  row.onclick = e=>{ if(e.target.closest('input,label,.subprog')) return; openTask(t.id); };
+  if(isForeignTask(t) && t.col==='__assigned' && !t.done){
+    const tk=document.createElement('button'); tk.type='button'; tk.className='btn sm take'; tk.textContent='Převzít';
+    tk.title='Přesunout do mého sloupce „'+((inboxCol()||{}).name||'')+'" – zadavatel uvidí, že na tom děláš';
+    tk.onclick=e=>{ e.stopPropagation(); takeOver(t); };
+    row.appendChild(tk);
+  }
+  row.onclick = e=>{ if(e.target.closest('input,label,.subprog,.take')) return; openTask(t.id); };
   row.onkeydown = e=>{ if(e.key==='Enter' && e.target===row){ e.preventDefault(); openTask(t.id); } };
   row.ondragstart = e=>{ e.dataTransfer.setData('text/plain', t.id); row.classList.add('dragging'); };
   row.ondragend = ()=>row.classList.remove('dragging');
@@ -1567,7 +1672,7 @@ function renderFocus(){
     <div class="panel"><h4>Deník dne</h4><p>Večer si zapiš, jestli padla žába, co se povedlo a co zítra.</p><button class="btn sm" id="f_journal" type="button" style="align-self:flex-start">Otevřít Manuál na Milana</button></div>
   </aside></div>`;
   box.querySelectorAll('.frow').forEach(r=>r.onclick=e=>{ if(e.target.matches('input')) return; openTask(r.dataset.id); });
-  box.querySelectorAll('[data-cb]').forEach(c=>c.onclick=e=>{ e.stopPropagation(); const t=state.tasks.find(x=>x.id===c.dataset.cb); if(!t) return; t.done=c.checked; t.doneAt=c.checked?Date.now():null; if(c.checked) t.returned=false; save(); render(); });
+  box.querySelectorAll('[data-cb]').forEach(c=>c.onclick=e=>{ e.stopPropagation(); const t=state.tasks.find(x=>x.id===c.dataset.cb); if(!t) return; setDone(t, c.checked); save(); render(); });
   box.querySelectorAll('[data-open]').forEach(r=>r.onclick=()=>openTask(r.dataset.open));
   const mv=document.getElementById('f_move');
   if(mv) mv.onclick=()=>{ const ic=inboxCol(); if(!ic || (tc && ic.id===tc.id)){ alert('Nastav některému sloupci roli „Inbox".'); return; }
@@ -1602,6 +1707,7 @@ function setupDrop(list, colId){
     const task = state.tasks.find(t=>t.id===id); if(!task) return;
     if(colId==='__assigned' && !isForeignTask(task)){ render(); return; } // vlastní úkol do „Přiřazené mně" nepatří
     task.col = colId;
+    noteMyMove(task);
     // reorder: rebuild order of tasks within state.tasks
     state.tasks = state.tasks.filter(t=>t.id!==id);
     if(after){
@@ -1653,7 +1759,8 @@ function openTaskModal(t, isNew){
     <div class="d-head">
       <span class="d-crumb" id="m_crumb"></span>
       <span class="spacer"></span>
-      ${isNew?'':`<button class="btn sm ${t.done?'':'primary'}" id="m_done" type="button">${ICON('check','style="stroke-width:2.4;width:14px;height:14px"')}${t.done?'Vrátit mezi otevřené':'Hotovo'}</button>`}
+      ${(!isNew && !isForeign && isHandedIn(t))?`<button class="btn sm" id="m_back" type="button" title="Řešitel uvidí úkol znovu jako otevřený">Vrátit k dopracování</button>`:''}
+      ${isNew||(isForeign&&t.realDone)?'':`<button class="btn sm ${t.done?'':'primary'}" id="m_done" type="button">${ICON('check','style="stroke-width:2.4;width:14px;height:14px"')}${isForeign?(t.done?'Vzít zpět':'Hotovo – předat ke kontrole'):(t.done?'Vrátit mezi otevřené':(isHandedIn(t)?'Schválit a uzavřít':'Hotovo'))}</button>`}
       <button class="xbtn" id="m_close" type="button" aria-label="Zavřít" style="width:34px;height:34px">${ICON('x')}</button>
     </div>
     <div class="d-body" id="m_body">
@@ -1880,7 +1987,7 @@ function openTaskModal(t, isNew){
     const title = $('m_title').value.trim();
     if(!title){ alert('Zadej název úkolu.'); $('m_title').focus(); return; }
     t.title = title;
-    if(t.col!==col){ t.col = col; if(!isForeign) t.returned = false; }
+    if(t.col!==col){ t.col = col; if(!isForeign) t.returned = false; else noteMyMove(t); }
     t.due   = due;
     t.hard  = !!(due && hard);
     t.note  = $('m_note').value;
@@ -1902,9 +2009,15 @@ function openTaskModal(t, isNew){
   $('m_cancel').onclick = doCancel;
   $('m_close').onclick = doCancel;
   modalBox.onkeydown = e=>{ if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); doSave(); } };
+  if($('m_back')) $('m_back').onclick = ()=>{
+    if(modalDirty) doSave();
+    t.back = Date.now();
+    if(t.pc && colById(t.pc)) t.col = t.pc;
+    save(); closeModal(); render();
+  };
   if($('m_done')) $('m_done').onclick = ()=>{
-    if(modalDirty){ doSave(); t.done=!t.done; t.doneAt=t.done?Date.now():null; if(t.done) t.returned=false; save(); render(); return; }
-    t.done=!t.done; t.doneAt=t.done?Date.now():null; if(t.done) t.returned=false; save(); closeModal(); render();
+    if(modalDirty){ doSave(); setDone(t, !t.done); save(); render(); return; }
+    setDone(t, !t.done); save(); closeModal(); render();
   };
   if(!isNew) setupComments(t);
   if(!isNew && KB_READY) KB.renderTaskLinks(t.id, $('m_kb'), ()=>{ if(modalDirty && !confirm('Zahodit neuložené změny v úkolu?')) return false; closeModal(); render(); });
@@ -2395,7 +2508,7 @@ function bootKB(){
     host: {
       personColor,
       getTask: id=>kbTask(state.tasks.find(x=>x.id===id)),
-      toggleTask: (id, done)=>{ const t=state.tasks.find(x=>x.id===id); if(!t) return; t.done=done; t.doneAt=done?Date.now():null; if(done) t.returned=false; save(); render(); },
+      toggleTask: (id, done)=>{ const t=state.tasks.find(x=>x.id===id); if(!t) return; setDone(t, done); save(); render(); },
       openTask: id=>{ if(state.tasks.some(x=>x.id===id)) openTask(id); else KB.ui.toast('Tento úkol nevidíš – patří někomu jinému'); },
       createTask: ({title, noteTitle})=>new Promise(res=>{
         const c=inboxCol(); if(!c){ res(null); return; }
