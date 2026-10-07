@@ -150,6 +150,31 @@ kbd{font-family:var(--mono); font-size:11px; color:var(--muted); border:1px soli
 .stb.done{background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--text);}
 .stb.hot, .stb.back{background:var(--today-bg); color:var(--today-tx);}
 .task > .take{flex:none; align-self:center; margin-left:6px;}
+/* husté řádky */
+body.dense .col{padding:8px; gap:6px; border-radius:10px;}
+body.dense .col-head{min-height:24px;}
+body.dense .tasklist{gap:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--card);}
+body.dense .tasklist:empty{border:0;}
+body.dense .empty{padding:6px 8px; border-radius:7px;}
+body.dense .quickadd{height:28px; border-radius:7px; font-size:12.5px;}
+body.dense .cap{padding:0 4px 2px; gap:3px;}
+.task.dense-row{align-items:center; gap:8px; padding:0 8px; min-height:29px; border:0; border-bottom:1px solid var(--line); border-radius:0; box-shadow:none; font-size:13px;}
+.task.dense-row:last-child{border-bottom:0;}
+.task.dense-row > input[type=checkbox]{margin:0; width:14px; height:14px;}
+.task.dense-row .ttl{-webkit-line-clamp:1; font-size:13px; font-weight:450; white-space:nowrap; text-overflow:ellipsis; display:block;}
+.task.dense-row.returned{box-shadow:inset 3px 0 0 var(--accent); border-color:var(--line);}
+.dr-right{display:inline-flex; align-items:center; gap:6px; flex:none; max-width:55%; overflow:hidden; font-size:11px; color:var(--muted); white-space:nowrap;}
+.dr-st{padding:0 6px; height:18px; line-height:18px; border-radius:4px; background:var(--hover); color:var(--tx2); overflow:hidden; text-overflow:ellipsis; max-width:120px;}
+@media (max-width:600px){ .dr-right{max-width:45%;} .dr-sub, .dr-st.work, .dr-st.new, .dr-st.from{display:none;} }
+.dr-st.new{background:transparent; border:1px dashed var(--line2); color:var(--muted); line-height:16px;}
+.dr-st.done{background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--text);}
+.dr-st.hot{background:var(--today-bg); color:var(--today-tx);}
+.dr-due.hard{color:var(--hard-tx); font-weight:600;}
+.dr-due.today{color:var(--today-tx); font-weight:600;}
+.dr-due.soft.past{opacity:.7;}
+.task.dense-row .avs{margin-left:0;}
+.task.dense-row .av{width:18px; height:18px; font-size:8px;}
+.task.dense-row > .take{height:22px; padding:0 8px; font-size:11.5px;}
 .soft{color:var(--muted);}
 .soft.past{opacity:.75;}
 .avs{margin-left:auto; display:inline-flex;}
@@ -495,6 +520,7 @@ body.dark .note{background:#24221A; border-color:#3F3A22; color:#EDEEF0;}
     <span class="vsep"></span>
     <button class="chip warn" id="urgentBadge" type="button" title="Kliknutím vyfiltruješ pevné termíny do 3 dnů"></button>
     <button class="chip" id="hideDoneBtn" type="button">Skrýt hotové</button>
+    <button class="chip" id="denseBtn" type="button" title="Přepnout karty / husté řádky (klávesa H)">Husté řádky</button>
   </div>
   <div id="board"></div>
 </div>
@@ -1094,6 +1120,8 @@ function esc(s){ const d=document.createElement('div'); d.textContent=s; return 
 /* ---------------- render ---------------- */
 const ICON = (id, attrs='') => `<svg class="ico" ${attrs}><use href="#i-${id}"/></svg>`;
 let quickOnly = false;
+/* husté zobrazení: jeden úkol = jeden řádek; pamatuje se v tomto prohlížeči */
+let DENSE = (()=>{ try{ return localStorage.getItem('todomk-dense')==='1'; }catch(e){ return false; } })();
 function colRole(c){
   if(!c) return '';
   if(typeof c.role==='string') return c.role;
@@ -1138,6 +1166,8 @@ function resurface(){
 }
 
 function render(){
+  document.body.classList.toggle('dense', DENSE);
+  { const db=document.getElementById('denseBtn'); if(db) db.classList.toggle('on', DENSE); }
   if(window.KB && KB_READY && KB.isOpen()) KB.refreshTasks();
   applyTheme();
   renderHeader();
@@ -1519,8 +1549,55 @@ function takeOver(t){
   t.col=ic.id; noteMyMove(t); save(); render();
 }
 
+/* ---------- hustý řádek (jeden úkol = jeden řádek) ---------- */
+function renderTaskDense(t){
+  const handed = isHandedIn(t);
+  const row = document.createElement('div');
+  row.className='task dense-row'+(t.done?' done':'')+((t.returned||handed)?' returned':''); row.draggable=true; row.dataset.id=t.id; row.tabIndex=0;
+  row.setAttribute('role','button'); row.setAttribute('aria-label', t.title);
+  const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=t.done; cb.setAttribute('aria-label','Hotovo');
+  cb.onclick = e=>{ e.stopPropagation(); setDone(t, cb.checked); save(); render(); };
+  const ttl=document.createElement('span'); ttl.className='ttl'; ttl.textContent=t.title;
+  const tipParts=[t.title];
+  if(t.note) tipParts.push(t.note.slice(0,200));
+  row.title=tipParts.join('\n\n');
+  const right=document.createElement('span'); right.className='dr-right';
+  const add=(cls, txt, tip)=>{ const e=document.createElement('span'); e.className=cls; e.textContent=txt; if(tip) e.title=tip; right.appendChild(e); };
+  if(t.priority) add('prio', '!'.repeat(t.priority), 'Priorita '+t.priority);
+  if(t.subs && t.subs.length) add('dr-sub mono', t.subs.filter(x=>x.done).length+'/'+t.subs.length, 'Podúkoly');
+  if(isForeignTask(t)){
+    const s=stateOf(t, ME.name);
+    if(!t.realDone && s.s==='hotovo') add('dr-st done', 'odevzdáno', 'Čeká na kontrolu u '+personLabel(t.ownerName));
+    else if(!t.realDone && s.s==='vraceno') add('dr-st hot', 'vráceno', personLabel(t.ownerName)+' vrátil k dopracování');
+    else add('dr-st from', 'od '+personLabel(t.ownerName));
+  } else if(!t.done){
+    if(handed) add('dr-st hot', 'ke kontrole');
+    for(const n of delegatees(t)){
+      const s=stateOf(t,n);
+      const w = s.s==='prevzato' ? (s.c||'převzato') : ST_LBL[s.s];
+      add('dr-st '+(s.s==='novy'?'new':s.s==='hotovo'?'done':s.s==='vraceno'?'hot':'work'), personLabel(n)+': '+w);
+    }
+  }
+  const di = dueInfo(t);
+  if(di) add('dr-due '+di.cls, di.txt.replace(/^chtěl jsem do |^chci do |^Pevně /,''), di.txt);
+  const ppl = taskPeople(t).filter(n=>!ME || n!==ME.name);
+  if(ppl.length){ const a=document.createElement('span'); a.className='avs'; a.innerHTML=ppl.slice(0,2).map(n=>`<span class="av" title="${esc(n)}" style="background:${personColor(n)}">${esc(initials(n))}</span>`).join(''); right.appendChild(a); }
+  row.append(cb, ttl, right);
+  if(isForeignTask(t) && t.col==='__assigned' && !t.done){
+    const tk=document.createElement('button'); tk.type='button'; tk.className='btn sm take'; tk.textContent='Převzít';
+    tk.onclick=e=>{ e.stopPropagation(); takeOver(t); };
+    row.appendChild(tk);
+  }
+  row.onclick = e=>{ if(e.target.closest('input,.take')) return; openTask(t.id); };
+  row.onkeydown = e=>{ if(e.key==='Enter' && e.target===row){ e.preventDefault(); openTask(t.id); } };
+  row.ondragstart = e=>{ e.dataTransfer.setData('text/plain', t.id); row.classList.add('dragging'); };
+  row.ondragend = ()=>row.classList.remove('dragging');
+  return row;
+}
+
 /* ---------- karta úkolu ---------- */
 function renderTask(t){
+  if(DENSE) return renderTaskDense(t);
   const row = document.createElement('div');
   const handed = isHandedIn(t);
   row.className='task'+(t.done?' done':'')+((t.returned||handed)?' returned':''); row.draggable=true; row.dataset.id=t.id; row.tabIndex=0;
@@ -2415,6 +2492,17 @@ updateFrogChip();
 document.getElementById('search').oninput = e=>{ searchQ=e.target.value.trim(); renderBoard(); };
 document.getElementById('urgentBadge').onclick = ()=>{ urgentOnly=!urgentOnly; render(); };
 document.getElementById('hideDoneBtn').onclick = ()=>{ state.hideDone=!state.hideDone; save(); render(); };
+/* husté zobrazení: jeden úkol = jeden řádek; pamatuje se v tomto prohlížeči */
+function setDense(v){ DENSE=!!v; try{ localStorage.setItem('todomk-dense', DENSE?'1':'0'); }catch(e){} render(); }
+document.getElementById('denseBtn').onclick = ()=>setDense(!DENSE);
+document.addEventListener('keydown', e=>{
+  if(e.key!=='h' && e.key!=='H') return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const tg=e.target; if(tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName))) return;
+  if(document.getElementById('overlay').classList.contains('show')) return;
+  if(window.KB && KB_READY && KB.isOpen()) return;
+  e.preventDefault(); setDense(!DENSE);
+});
 function applyTheme(){
   const on = !!state.dark;
   document.body.classList.toggle('dark', on);
